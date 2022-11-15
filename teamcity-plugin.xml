@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<teamcity-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-plugin-v1-xml">
+  <info>
+    <name>datadog-ci-integration</name>
+    <display-name>Datadog CI integration</display-name>
+    <version>0.0.1</version>
+    <description>To be added</description>
+    <download-url>To be added</download-url>
+    <email>To be added</email>
+    <vendor>
+      <name>To be added</name>
+      <url>To be added</url>
+      <logo>To be added</logo>
+    </vendor>
+  </info>
+  <deployment use-separate-classloader="true"/>
+</teamcity-plugin>

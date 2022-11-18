@@ -1,8 +1,8 @@
-name: Build and Test changes
+name: Compile and Test changes
 on: [push]
 
 jobs:
-  build:
+  compile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -10,10 +10,12 @@ jobs:
         with:
           java-version: '8'
           distribution: 'zulu'
-      - name: Maven build
+          cache: maven
+      - name: Maven Compile
         run: mvn clean compile
 
   test:
+    needs: compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,5 +23,6 @@ jobs:
         with:
           java-version: '8'
           distribution: 'zulu'
+          cache: maven
       - name: Maven test
         run: mvn test

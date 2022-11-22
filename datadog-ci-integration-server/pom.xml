@@ -11,6 +11,13 @@
   <dependencies>
 
     <dependency>
+      <groupId>org.jetbrains.teamcity.internal</groupId>
+      <artifactId>server</artifactId>
+      <version>${teamcity-version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.jetbrains.teamcity</groupId>
       <artifactId>server-api</artifactId>
       <version>${teamcity-version}</version>
@@ -29,6 +36,12 @@
       <groupId>org.jetbrains.teamcity</groupId>
       <artifactId>tests-support</artifactId>
       <version>${teamcity-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <version>1.10.19</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

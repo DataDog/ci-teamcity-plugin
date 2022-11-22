@@ -12,7 +12,6 @@ import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.users.SUser;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
@@ -48,20 +47,18 @@ public class DatadogNotificator extends NotificatorAdapter {
         notificatorRegistry.register(this);
     }
 
-    @NotNull
     @Override
     public String getNotificatorType() {
         return NOTIFIER_TYPE;
     }
 
-    @NotNull
     @Override
     public String getDisplayName() {
         return DISPLAY_NAME;
     }
 
     @Override
-    public void notifyBuildSuccessful(@NotNull SRunningBuild runningBuild, @NotNull Set<SUser> users) {
+    public void notifyBuildSuccessful(SRunningBuild runningBuild, Set<SUser> users) {
         SBuild build = buildsManager.findBuildInstanceById(runningBuild.getBuildId());
         if (build == null) {
             LOG.error("Could not find build with ID: " + runningBuild.getBuildId());
@@ -72,7 +69,7 @@ public class DatadogNotificator extends NotificatorAdapter {
     }
 
     @Override
-    public void notifyBuildFailed(@NotNull SRunningBuild runningBuild, @NotNull Set<SUser> users) {
+    public void notifyBuildFailed(SRunningBuild runningBuild, Set<SUser> users) {
         SBuild build = buildsManager.findBuildInstanceById(runningBuild.getBuildId());
         if (build == null) {
             LOG.error("Could not find build with ID: " + runningBuild.getBuildId());

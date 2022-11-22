@@ -1,7 +1,6 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 
@@ -24,11 +23,10 @@ public class Pipeline extends CIEntity {
     @Nonnull
     private final PipelineStatus status;
 
-    //TODO add comment here
-    public Pipeline(@NotNull String name,
-                    @NotNull String url,
-                    @NotNull String start,
-                    @NotNull String end,
+    public Pipeline(@Nonnull String name,
+                    @Nonnull String url,
+                    @Nonnull String start,
+                    @Nonnull String end,
                     @Nonnull String uniqueId,
                     @Nonnull String pipelineId,
                     boolean partialRetry,

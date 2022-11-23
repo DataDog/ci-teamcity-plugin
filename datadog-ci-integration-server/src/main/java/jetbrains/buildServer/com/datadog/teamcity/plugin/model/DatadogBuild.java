@@ -18,9 +18,17 @@ public class DatadogBuild {
     private final String projectID;
     private final Date startDate;
     private final Date finishDate;
+    private final int dependentOnMe;
 
     @VisibleForTesting
-    public DatadogBuild(long id, String name, Status status, boolean isComposite, String projectID, Date startDate, Date finishDate) {
+    public DatadogBuild(long id,
+                        String name,
+                        Status status,
+                        boolean isComposite,
+                        String projectID,
+                        Date startDate,
+                        Date finishDate,
+                        int dependentOnMe) {
         this.id = id;
         this.name = name;
         this.status = status;
@@ -28,11 +36,13 @@ public class DatadogBuild {
         this.projectID = projectID;
         this.startDate = startDate;
         this.finishDate = finishDate;
+        this.dependentOnMe = dependentOnMe;
     }
 
     public static DatadogBuild fromBuild(SBuild build) {
+        int dependentOnMe = build.getBuildPromotion().getDependedOnMe().size();
         return new DatadogBuild(build.getBuildId(), build.getFullName(), build.getBuildStatus(),
-                build.isCompositeBuild(), build.getProjectId(), build.getStartDate(), build.getFinishDate());
+                build.isCompositeBuild(), build.getProjectId(), build.getStartDate(), build.getFinishDate(), dependentOnMe);
     }
 
     public long id() {
@@ -47,10 +57,6 @@ public class DatadogBuild {
         return status;
     }
 
-    public boolean isComposite() {
-        return isComposite;
-    }
-
     public String projectID() {
         return projectID;
     }
@@ -61,5 +67,9 @@ public class DatadogBuild {
 
     public Date finishDate() {
         return finishDate;
+    }
+
+    public boolean isPipelineBuild() {
+        return isComposite && dependentOnMe == 0;
     }
 }

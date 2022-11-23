@@ -37,7 +37,7 @@ public class DatadogNotificatorTest {
     }
 
     @Test
-    public void shouldSendWebhookForFinishedCompositeBuild() {
+    public void shouldSendWebhookForPipelineBuild() {
         // Setup
         String mockApiKey = "mock-api-key";
         String mockSite = "mock-dd-site";
@@ -48,7 +48,7 @@ public class DatadogNotificatorTest {
 
         // When
         long buildID = 100;
-        notificator.onFinishedBuild(testBuild(buildID));
+        notificator.onFinishedBuild(pipelineBuild(buildID));
 
         // Then
         ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
@@ -58,7 +58,31 @@ public class DatadogNotificatorTest {
         assertThat(pipelineCaptor.getValue().uniqueId()).isEqualTo(String.valueOf(buildID));
     }
 
-    private DatadogBuild testBuild(long id) {
-        return new DatadogBuild(id, "build", NORMAL, true, "Project", Date.from(now()), Date.from(now()));
+    @Test
+    public void shouldNotSendWebhookForCompositeBuildWithDependents() {
+        // Setup
+        when(projectHandlerMock.getProjectParameters(Optional.of("Project")))
+            .thenReturn(new ProjectParameters("mock-api-key", "mock-dd-site"));
+        when(buildServerMock.getRootUrl()).thenReturn("mock-url");
+
+        // When
+        DatadogBuild compositeBuild = compositeBuildWithDependents(100);
+        notificator.onFinishedBuild(compositeBuild);
+
+        // Then: at the moment we don't process composite builds if they are not the last in the chain
+        // (i.e. have other builds depending on them)
+        verifyZeroInteractions(datadogClientMock);
+    }
+
+    private DatadogBuild pipelineBuild(long id) {
+        return createBuild(id, true, 0);
+    }
+
+    private DatadogBuild compositeBuildWithDependents(long id) {
+        return createBuild(id, true, 1);
+    }
+
+    private DatadogBuild createBuild(long id, boolean isComposite, int dependentOnMe) {
+        return new DatadogBuild(id, "build", NORMAL, true, "Project", Date.from(now()), Date.from(now()), dependentOnMe);
     }
 }

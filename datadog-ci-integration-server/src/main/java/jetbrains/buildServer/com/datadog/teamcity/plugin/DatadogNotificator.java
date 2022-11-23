@@ -82,7 +82,7 @@ public class DatadogNotificator extends NotificatorAdapter {
     @VisibleForTesting
     protected void onFinishedBuild(DatadogBuild build) {
         //TODO for now we are only generating payloads for pipelines (job support in CIAPP-5340)
-        if (isPipelineBuild(build)) {
+        if (build.isPipelineBuild()) {
             Optional<String> optionalProjectID = Optional.ofNullable(build.projectID());
             ProjectParameters params = projectHandler.getProjectParameters(optionalProjectID);
 
@@ -91,12 +91,6 @@ public class DatadogNotificator extends NotificatorAdapter {
         } else {
             LOG.info("Job webhooks not supported yet");
         }
-    }
-
-
-    //TODO For now this method just checks for composite builds, it will be really implemented with CIAPP-5339.
-    private boolean isPipelineBuild(DatadogBuild datadogBuild) {
-        return datadogBuild.isComposite();
     }
 
     private Pipeline createPipeline(DatadogBuild datadogBuild) {

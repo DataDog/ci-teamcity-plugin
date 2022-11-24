@@ -2,7 +2,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.Pipeline;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.*;

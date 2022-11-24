@@ -3,8 +3,12 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.DatadogBuild;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.Pipeline;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildDependenciesManager;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.JobStatus;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline.PipelineStatus;
 import jetbrains.buildServer.notification.NotificatorAdapter;
 import jetbrains.buildServer.notification.NotificatorRegistry;
 import jetbrains.buildServer.serverSide.BuildsManager;
@@ -14,35 +18,36 @@ import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.users.SUser;
 import org.springframework.stereotype.Component;
 
-import java.text.SimpleDateFormat;
 import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.String.format;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.*;
 
 @Component
 public class DatadogNotificator extends NotificatorAdapter {
-
-    private static final SimpleDateFormat RFC_3339 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
 
     private static final String NOTIFIER_TYPE = "DATADOG_NOTIFIER";
     private static final String DISPLAY_NAME = "Datadog Notificator";
     private static final Logger LOG = Logger.getInstance(DatadogNotificator.class.getName());
 
     private final BuildsManager buildsManager;
-    private final SBuildServer buildServer;
     private final DatadogClient datadogClient;
     private final ProjectHandler projectHandler;
+    private final SBuildServer buildServer;
+    private final BuildDependenciesManager dependenciesManager;
 
     public DatadogNotificator(NotificatorRegistry notificatorRegistry,
                               BuildsManager buildsManager,
-                              SBuildServer buildServer,
                               DatadogClient datadogClient,
-                              ProjectHandler projectHandler) {
+                              ProjectHandler projectHandler,
+                              SBuildServer buildServer,
+                              BuildDependenciesManager dependenciesManager) {
         this.buildsManager = buildsManager;
-        this.buildServer = buildServer;
         this.datadogClient = datadogClient;
         this.projectHandler = projectHandler;
+        this.buildServer = buildServer;
+        this.dependenciesManager = dependenciesManager;
 
         notificatorRegistry.register(this);
     }
@@ -58,51 +63,85 @@ public class DatadogNotificator extends NotificatorAdapter {
     }
 
     @Override
-    public void notifyBuildSuccessful(SRunningBuild runningBuild, Set<SUser> users) {
-        SBuild build = buildsManager.findBuildInstanceById(runningBuild.getBuildId());
-        if (build == null) {
-            LOG.error("Could not find build with ID: " + runningBuild.getBuildId());
-            return;
-        }
-
-        onFinishedBuild(DatadogBuild.fromBuild(build));
+    public void notifyBuildSuccessful(SRunningBuild build, Set<SUser> users) {
+        onFinishedBuild(build);
     }
 
     @Override
-    public void notifyBuildFailed(SRunningBuild runningBuild, Set<SUser> users) {
-        SBuild build = buildsManager.findBuildInstanceById(runningBuild.getBuildId());
-        if (build == null) {
-            LOG.error("Could not find build with ID: " + runningBuild.getBuildId());
-            return;
-        }
-
-        onFinishedBuild(DatadogBuild.fromBuild(build));
+    public void notifyBuildFailed(SRunningBuild build, Set<SUser> users) {
+        onFinishedBuild(build);
     }
 
     @VisibleForTesting
-    protected void onFinishedBuild(DatadogBuild build) {
-        //TODO for now we are only generating payloads for pipelines (job support in CIAPP-5340)
-        if (build.isPipelineBuild()) {
-            Optional<String> optionalProjectID = Optional.ofNullable(build.projectID());
-            ProjectParameters params = projectHandler.getProjectParameters(optionalProjectID);
+    protected void onFinishedBuild(SBuild build) {
+        SBuild finishedBuild = buildsManager.findBuildInstanceById(build.getBuildId());
+        if (finishedBuild == null) {
+            // This should not happen, but better to check for it anyway
+            LOG.error("Could not find build with ID: " + build.getBuildId());
+            return;
+        }
 
-            Pipeline pipeline = createPipeline(build);
-            datadogClient.sendWebhook(pipeline, params.apiKey(), params.ddSite());
+        if (shouldBeIgnored(finishedBuild)) {
+            LOG.info(format("Ignoring build %s as it's a composite build but not the final build in the chain", finishedBuild.getFullName()));
+            return;
+        }
+
+        Optional<String> optionalProjectID = Optional.ofNullable(finishedBuild.getProjectId());
+        ProjectParameters params = projectHandler.getProjectParameters(optionalProjectID);
+
+        CIEntity ciEntity = createEntity(finishedBuild);
+        datadogClient.sendWebhook(ciEntity, params.apiKey(), params.ddSite());
+    }
+
+    private CIEntity createEntity(SBuild build) {
+        if (isPipelineBuild(build)) {
+            return createPipelineEntity(build);
         } else {
-            LOG.info("Job webhooks not supported yet");
+            return createJobEntity(build);
         }
     }
 
-    private Pipeline createPipeline(DatadogBuild datadogBuild) {
+    private Pipeline createPipelineEntity(SBuild build) {
         return new Pipeline(
-                datadogBuild.name(),
-                format("%s/build/%s", buildServer.getRootUrl(), datadogBuild.id()),
-                RFC_3339.format(datadogBuild.startDate()),
-                RFC_3339.format(datadogBuild.finishDate()),
-                String.valueOf(datadogBuild.id()),
-                String.valueOf(datadogBuild.id()),
+                build.getFullName(),
+                buildURL(build),
+                toRFC3339(build.getStartDate()),
+                toRFC3339(build.getFinishDate()),
+                String.valueOf(build.getBuildId()),
+                String.valueOf(build.getBuildId()),
                 false, //TODO partial retry detection needs to be implemented still (CIAPP-5347)
-                datadogBuild.status().isSuccessful() ? Pipeline.PipelineStatus.SUCCESS : Pipeline.PipelineStatus.ERROR
+                build.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR
         );
+    }
+
+    private Job createJobEntity(SBuild build) {
+        PipelineInfo pipelineInfo = dependenciesManager.getPipelineBuildForJob(build)
+                .map(pipelineBuild -> new PipelineInfo(String.valueOf(pipelineBuild.getBuildId()), pipelineBuild.getFullName()))
+                .orElseThrow(() -> new IllegalArgumentException(format("Could not find pipeline build for job build %s", build)));
+
+        return new Job(
+                build.getFullName(),
+                buildURL(build),
+                toRFC3339(build.getStartDate()),
+                toRFC3339(build.getFinishDate()),
+                pipelineInfo.id,
+                pipelineInfo.name,
+                String.valueOf(build.getBuildId()),
+                build.getBuildStatus().isSuccessful() ? JobStatus.SUCCESS : JobStatus.ERROR
+        );
+    }
+
+    private String buildURL(SBuild build) {
+        return format("%s/build/%s", buildServer.getRootUrl(), build.getBuildId());
+    }
+
+    private static class PipelineInfo {
+        private final String id;
+        private final String name;
+
+        private PipelineInfo(String id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 }

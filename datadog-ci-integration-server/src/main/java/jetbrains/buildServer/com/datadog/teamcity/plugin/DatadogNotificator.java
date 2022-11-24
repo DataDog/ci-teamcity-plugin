@@ -96,8 +96,11 @@ public class DatadogNotificator extends NotificatorAdapter {
     private CIEntity createEntity(SBuild build) {
         if (isPipelineBuild(build)) {
             return createPipelineEntity(build);
-        } else {
+        } else if (isJobBuild(build)) {
             return createJobEntity(build);
+        } else {
+            // This should not happen, as we ignore composite builds with dependents
+            throw new IllegalArgumentException("Could not create entity for build: " + build);
         }
     }
 

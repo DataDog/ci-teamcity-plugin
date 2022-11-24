@@ -20,6 +20,10 @@ public final class BuildUtils {
         return build.isCompositeBuild() && build.getNumberOfDependedOnMe() == 0;
     }
 
+    public static boolean isJobBuild(SBuild build) {
+        return !build.isCompositeBuild();
+    }
+
     /**
      * We ignore a composite build if it's not the last in the chain. This is because we don't want to report them on
      * the trace as they are not run in agents or have any steps (their only purpose is to aggregate previous results).

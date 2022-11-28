@@ -1,10 +1,11 @@
-package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
+package jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
 
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.CIEntity.CILevel.PIPELINE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.PIPELINE;
 
 public class Pipeline extends CIEntity {
 
@@ -58,7 +59,15 @@ public class Pipeline extends CIEntity {
         return uniqueId;
     }
 
+    @Nonnull
+    public String name() { return name; }
+
     public enum PipelineStatus {
-        @JsonProperty("success") SUCCESS, @JsonProperty("error") ERROR
+        SUCCESS, ERROR;
+
+        @JsonValue
+        public String toLowerCase() {
+            return toString().toLowerCase();
+        }
     }
 }

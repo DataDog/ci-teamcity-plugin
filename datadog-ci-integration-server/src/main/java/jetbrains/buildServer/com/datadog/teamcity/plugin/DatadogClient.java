@@ -3,7 +3,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.CIEntity;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 

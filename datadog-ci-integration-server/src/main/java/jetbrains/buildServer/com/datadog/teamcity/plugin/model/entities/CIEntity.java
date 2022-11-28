@@ -1,4 +1,4 @@
-package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
+package jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;

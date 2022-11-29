@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.PIPELINE;
 
@@ -23,6 +24,10 @@ public class Pipeline extends CIEntity {
     @JsonProperty
     @Nonnull
     private final PipelineStatus status;
+
+    @JsonProperty("previous_attempt")
+    @Nullable
+    private RelatedPipeline previousAttempt;
 
     public Pipeline(@Nonnull String name,
                     @Nonnull String url,
@@ -62,12 +67,39 @@ public class Pipeline extends CIEntity {
     @Nonnull
     public String name() { return name; }
 
+    public boolean isPartialRetry() {
+        return partialRetry;
+    }
+
+    @Nullable
+    public RelatedPipeline previousAttempt() {
+        return previousAttempt;
+    }
+
+    public void setPreviousAttempt(RelatedPipeline previousAttempt) {
+        this.previousAttempt = previousAttempt;
+    }
+
     public enum PipelineStatus {
         SUCCESS, ERROR;
 
         @JsonValue
         public String toLowerCase() {
             return toString().toLowerCase();
+        }
+    }
+
+    public static class RelatedPipeline {
+        @JsonProperty private final String id;
+        @JsonProperty private final String url;
+
+        public RelatedPipeline(String id, String url) {
+            this.id = id;
+            this.url = url;
+        }
+
+        public String id() {
+            return id;
         }
     }
 }

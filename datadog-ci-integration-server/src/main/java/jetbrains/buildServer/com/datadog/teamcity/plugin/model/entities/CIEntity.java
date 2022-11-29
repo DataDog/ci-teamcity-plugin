@@ -38,6 +38,26 @@ public class CIEntity {
         this.end = end;
     }
 
+    @Nonnull
+    public String name() {
+        return name;
+    }
+
+    @Nonnull
+    public String url() {
+        return url;
+    }
+
+    @Nonnull
+    public String start() {
+        return start;
+    }
+
+    @Nonnull
+    public String end() {
+        return end;
+    }
+
     public enum CILevel {
         JOB, PIPELINE;
 

@@ -9,6 +9,7 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline.PipelineStatus;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline.RelatedPipeline;
 import jetbrains.buildServer.notification.NotificatorAdapter;
 import jetbrains.buildServer.notification.NotificatorRegistry;
 import jetbrains.buildServer.serverSide.BuildsManager;
@@ -81,6 +82,7 @@ public class DatadogNotificator extends NotificatorAdapter {
             return;
         }
 
+        //TODO find other cases to be ignored
         if (shouldBeIgnored(finishedBuild)) {
             LOG.info(format("Ignoring build %s as it's a composite build but not the final build in the chain", finishedBuild.getFullName()));
             return;
@@ -99,27 +101,34 @@ public class DatadogNotificator extends NotificatorAdapter {
         } else if (isJobBuild(build)) {
             return createJobEntity(build);
         } else {
-            // This should not happen, as we ignore composite builds with dependents
+            // This should not happen, as we ignore non-eligible builds before reaching this point
             throw new IllegalArgumentException("Could not create entity for build: " + build);
         }
     }
 
     private Pipeline createPipelineEntity(SBuild build) {
-        return new Pipeline(
+        boolean isPartialRetry = isPartialRetry(build);
+        Pipeline pipeline = new Pipeline(
                 build.getFullName(),
                 buildURL(build),
                 toRFC3339(build.getStartDate()),
                 toRFC3339(build.getFinishDate()),
-                String.valueOf(build.getBuildId()),
-                String.valueOf(build.getBuildId()),
-                false, //TODO partial retry detection needs to be implemented still (CIAPP-5347)
-                build.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR
-        );
+                buildID(build),
+                buildID(build),
+                isPartialRetry,
+                build.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR);
+
+        if (isPartialRetry && build.getPreviousFinished() != null) {
+            SBuild previousAttempt = build.getPreviousFinished();
+            pipeline.setPreviousAttempt(new RelatedPipeline(buildID(previousAttempt), buildURL(previousAttempt)));
+        }
+
+        return pipeline;
     }
 
     private Job createJobEntity(SBuild build) {
         PipelineInfo pipelineInfo = dependenciesManager.getPipelineBuildForJob(build)
-                .map(pipelineBuild -> new PipelineInfo(String.valueOf(pipelineBuild.getBuildId()), pipelineBuild.getFullName()))
+                .map(pipelineBuild -> new PipelineInfo(buildID(pipelineBuild), pipelineBuild.getFullName()))
                 .orElseThrow(() -> new IllegalArgumentException(format("Could not find pipeline build for job build %s", build)));
 
         return new Job(
@@ -129,7 +138,7 @@ public class DatadogNotificator extends NotificatorAdapter {
                 toRFC3339(build.getFinishDate()),
                 pipelineInfo.id,
                 pipelineInfo.name,
-                String.valueOf(build.getBuildId()),
+                buildID(build),
                 build.getBuildStatus().isSuccessful() ? JobStatus.SUCCESS : JobStatus.ERROR
         );
     }

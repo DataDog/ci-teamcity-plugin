@@ -2,6 +2,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
 
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
+import jetbrains.buildServer.serverSide.TriggeredBy;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -22,6 +23,16 @@ public final class BuildUtils {
 
     public static boolean isJobBuild(SBuild build) {
         return !build.isCompositeBuild();
+    }
+
+    public static boolean isPartialRetry(SBuild build) {
+        TriggeredBy trigger = build.getTriggeredBy();
+        return trigger.isTriggeredByUser() ||
+                trigger.getParameters().getOrDefault("type", "").equals("retry");
+    }
+
+    public static String buildID(SBuild build) {
+        return String.valueOf(build.getBuildId());
     }
 
     /**

@@ -13,7 +13,9 @@ import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 //TODO I don't see any way to instantiate 'dummy' TC builds for testing purposes,
 // so for now I'm creating this class able to construct mocked builds

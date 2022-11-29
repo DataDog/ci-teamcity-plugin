@@ -1,7 +1,6 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildDependenciesManager;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import jetbrains.buildServer.notification.NotificatorRegistry;
@@ -57,7 +56,7 @@ public class DatadogNotificatorTest {
 
     @Test
     public void shouldIgnoreCompositeBuildWithDependents() {
-        SBuild compositeBuildMock = new MockBuild.Builder(1).isComposite().withDependents(1).build();
+        SBuild compositeBuildMock = new MockBuild.Builder(1).isComposite().withNumOfDependents(1).build();
 
         notificator.onFinishedBuild(compositeBuildMock);
 
@@ -101,11 +100,11 @@ public class DatadogNotificatorTest {
         when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
                 .thenReturn(new ProjectParameters(mockApiKey, mockSite));
 
-        SBuild jobBuild = new MockBuild.Builder(1).withDependents(3).build();
+        SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
         SBuild pipelineBuild =new MockBuild.Builder(2).isComposite().build();
 
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
-        when(dependenciesManagerMock.getPipelineBuildForJob(jobBuild)).thenReturn(Optional.of(pipelineBuild));
+        when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.of(pipelineBuild));
 
         // When
         notificator.onFinishedBuild(jobBuild);
@@ -132,9 +131,9 @@ public class DatadogNotificatorTest {
         when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
                 .thenReturn(new ProjectParameters(mockApiKey, mockSite));
 
-        SBuild jobBuild = new MockBuild.Builder(1).withDependents(3).build();
+        SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
-        when(dependenciesManagerMock.getPipelineBuildForJob(jobBuild)).thenReturn(Optional.empty());
+        when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.empty());
 
         // When
         notificator.onFinishedBuild(jobBuild);

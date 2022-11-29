@@ -1,4 +1,4 @@
-package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
+package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -17,8 +17,7 @@ public class BuildDependenciesManager {
      * Retrieves the related pipeline build for a job build by traversing its dependents until a composite build with
      * 0 dependents is reached. {@link BuildPromotion} is used underlying as it's not null even when the build is not started yet.
      */
-    public Optional<SBuild> getPipelineBuildForJob(SBuild build) {
-        // TODO tests need to be added
+    public Optional<SBuild> getPipelineBuild(SBuild build) {
         Queue<BuildPromotion> buildsQueue = new LinkedList<>();
         buildsQueue.add(build.getBuildPromotion());
 

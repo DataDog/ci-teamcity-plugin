@@ -5,13 +5,15 @@ import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.TriggeredBy;
+import jetbrains.buildServer.serverSide.dependency.BuildDependency;
 
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static java.util.stream.Collectors.toList;
+import static org.mockito.Mockito.*;
 
 //TODO I don't see any way to instantiate 'dummy' TC builds for testing purposes,
 // so for now I'm creating this class able to construct mocked builds
@@ -36,8 +38,10 @@ public class MockBuild {
         when(buildMock.getPreviousFinished()).thenReturn(b.previousAttempt);
 
         BuildPromotion buildPromotionMock = mock(BuildPromotion.class);
-        when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependents);
+        when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependentsNum);
         when(buildPromotionMock.isCompositeBuild()).thenReturn(b.isComposite);
+        when(buildPromotionMock.getAssociatedBuild()).thenReturn(buildMock);
+        doReturn(b.dependents).when(buildPromotionMock).getDependedOnMe();
         when(buildMock.getBuildPromotion()).thenReturn(buildPromotionMock);
 
         when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
@@ -55,7 +59,7 @@ public class MockBuild {
 
         private boolean isComposite;
 
-        private int dependents;
+        private int dependentsNum;
         private String fullName = DEFAULT_NAME;
         private Status status = DEFAULT_STATUS;
         private String projectID = DEFAULT_PROJECT_ID;
@@ -63,6 +67,7 @@ public class MockBuild {
         private Date endDate = DEFAULT_END_DATE;
 
         private SFinishedBuild previousAttempt;
+        private List<BuildDependency> dependents;
 
         public Builder(long id) {
             this.id = id;
@@ -113,8 +118,19 @@ public class MockBuild {
             return this;
         }
 
-        public Builder withDependents(int dependents) {
-            this.dependents = dependents;
+        public Builder withNumOfDependents(int dependentsNum) {
+            this.dependentsNum = dependentsNum;
+            return this;
+        }
+
+        public Builder withDependents(List<SBuild> dependents) {
+            this.dependents = dependents.stream().map(build -> {
+                        BuildDependency dependencyMock = mock(BuildDependency.class);
+                        BuildPromotion buildPromotion = build.getBuildPromotion();
+                        when(dependencyMock.getDependent()).thenReturn(buildPromotion);
+                        return dependencyMock;
+                    })
+                    .collect(toList());
             return this;
         }
 

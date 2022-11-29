@@ -3,7 +3,6 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildDependenciesManager;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.JobStatus;
@@ -127,7 +126,7 @@ public class DatadogNotificator extends NotificatorAdapter {
     }
 
     private Job createJobEntity(SBuild build) {
-        PipelineInfo pipelineInfo = dependenciesManager.getPipelineBuildForJob(build)
+        PipelineInfo pipelineInfo = dependenciesManager.getPipelineBuild(build)
                 .map(pipelineBuild -> new PipelineInfo(buildID(pipelineBuild), pipelineBuild.getFullName()))
                 .orElseThrow(() -> new IllegalArgumentException(format("Could not find pipeline build for job build %s", build)));
 

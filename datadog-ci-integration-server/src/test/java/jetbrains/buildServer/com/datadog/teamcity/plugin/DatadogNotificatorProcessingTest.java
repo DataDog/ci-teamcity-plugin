@@ -1,6 +1,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import jetbrains.buildServer.notification.NotificatorRegistry;
@@ -20,14 +21,18 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class DatadogNotificatorTest {
+public class DatadogNotificatorProcessingTest {
+
+    private static final String TEST_API_KEY = "test-api-key";
+    private static final String TEST_DD_SITE = "test-dd-site";
 
     private DatadogClient datadogClientMock;
     private ProjectHandler projectHandlerMock;
     private BuildsManager buildsManagerMock;
-    private SBuildServer buildServerMock;
     private BuildDependenciesManager dependenciesManagerMock;
+    private SBuildServer buildServerMock;
 
+    private CIEntityFactory entityCreator;
     private DatadogNotificator notificator;
 
     @Before
@@ -35,12 +40,16 @@ public class DatadogNotificatorTest {
         datadogClientMock = mock(DatadogClient.class);
         projectHandlerMock = mock(ProjectHandler.class);
         buildsManagerMock = mock(BuildsManager.class);
-        buildServerMock = mock(SBuildServer.class);
         dependenciesManagerMock = mock(BuildDependenciesManager.class);
+        buildServerMock = mock(SBuildServer.class);
 
         when(buildServerMock.getRootUrl()).thenReturn("root-url");
+        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
+                .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+
+        entityCreator = new CIEntityFactory(buildServerMock, dependenciesManagerMock);
         notificator = new DatadogNotificator(mock(NotificatorRegistry.class), buildsManagerMock,
-                datadogClientMock, projectHandlerMock, buildServerMock, dependenciesManagerMock);
+                datadogClientMock, projectHandlerMock, entityCreator);
     }
 
     @Test
@@ -51,7 +60,7 @@ public class DatadogNotificatorTest {
 
         notificator.onFinishedBuild(mockSBuild);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, dependenciesManagerMock);
+        verifyZeroInteractions(projectHandlerMock, datadogClientMock, dependenciesManagerMock, buildServerMock);
     }
 
     @Test
@@ -60,17 +69,12 @@ public class DatadogNotificatorTest {
 
         notificator.onFinishedBuild(compositeBuildMock);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, dependenciesManagerMock);
+        verifyZeroInteractions(projectHandlerMock, datadogClientMock, dependenciesManagerMock, buildServerMock);
     }
 
     @Test
     public void shouldSendWebhookForPipelineBuild() {
         // Setup
-        String mockApiKey = "test-api-key";
-        String mockSite = "test-dd-site";
-        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
-                .thenReturn(new ProjectParameters(mockApiKey, mockSite));
-
         SBuild pipelineBuild = new MockBuild.Builder(1).isComposite().build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
@@ -80,7 +84,7 @@ public class DatadogNotificatorTest {
         // Then
         ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
         verify(datadogClientMock, times(1))
-                .sendWebhook(pipelineCaptor.capture(), eq(mockApiKey), eq(mockSite));
+                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         Pipeline pipelineWebhook = pipelineCaptor.getValue();
         assertThat(pipelineWebhook.uniqueId()).isEqualTo(String.valueOf(1));
@@ -95,11 +99,6 @@ public class DatadogNotificatorTest {
     @Test
     public void shouldSendWebhookForJobBuild() {
         // Setup
-        String mockApiKey = "test-api-key";
-        String mockSite = "test-dd-site";
-        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
-                .thenReturn(new ProjectParameters(mockApiKey, mockSite));
-
         SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
         SBuild pipelineBuild =new MockBuild.Builder(2).isComposite().build();
 
@@ -112,7 +111,7 @@ public class DatadogNotificatorTest {
         // Then
         ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
         verify(datadogClientMock, times(1))
-                .sendWebhook(jobCaptor.capture(), eq(mockApiKey), eq(mockSite));
+                .sendWebhook(jobCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         Job jobWebhook = jobCaptor.getValue();
         assertThat(jobWebhook.id()).isEqualTo(String.valueOf(1));
@@ -126,11 +125,6 @@ public class DatadogNotificatorTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionForJobWithoutPipeline() {
         // Setup
-        String mockApiKey = "test-api-key";
-        String mockSite = "test-dd-site";
-        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
-                .thenReturn(new ProjectParameters(mockApiKey, mockSite));
-
         SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
         when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.empty());
@@ -142,11 +136,6 @@ public class DatadogNotificatorTest {
     @Test
     public void shouldHandleManualRetries() {
         // Setup
-        String mockApiKey = "test-api-key";
-        String mockSite = "test-dd-site";
-        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
-                .thenReturn(new ProjectParameters(mockApiKey, mockSite));
-
         SFinishedBuild prevAttempt = new MockBuild.Builder(1).isComposite().buildFinished();
         SBuild pipelineRetry = new MockBuild.Builder(2)
                 .isComposite().isTriggeredByUser().withPreviousAttempt(prevAttempt).build();
@@ -159,7 +148,7 @@ public class DatadogNotificatorTest {
         // Then
         ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
         verify(datadogClientMock, times(1))
-                .sendWebhook(pipelineCaptor.capture(), eq(mockApiKey), eq(mockSite));
+                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         assertThat(pipelineCaptor.getValue().uniqueId()).isEqualTo(String.valueOf(2));
         assertThat(pipelineCaptor.getValue().isPartialRetry()).isTrue();
@@ -170,11 +159,6 @@ public class DatadogNotificatorTest {
     @Test
     public void shouldHandleAutomaticRetries() {
         // Setup
-        String mockApiKey = "test-api-key";
-        String mockSite = "test-dd-site";
-        when(projectHandlerMock.getProjectParameters(Optional.of(DEFAULT_PROJECT_ID)))
-                .thenReturn(new ProjectParameters(mockApiKey, mockSite));
-
         SFinishedBuild prevAttempt = new MockBuild.Builder(1).isComposite().buildFinished();
         SBuild pipelineRetry = new MockBuild.Builder(2)
                 .isComposite().isTriggeredByReply().withPreviousAttempt(prevAttempt).build();
@@ -187,11 +171,76 @@ public class DatadogNotificatorTest {
         // Then
         ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
         verify(datadogClientMock, times(1))
-                .sendWebhook(pipelineCaptor.capture(), eq(mockApiKey), eq(mockSite));
+                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         assertThat(pipelineCaptor.getValue().uniqueId()).isEqualTo(String.valueOf(2));
         assertThat(pipelineCaptor.getValue().isPartialRetry()).isTrue();
         assertThat(pipelineCaptor.getValue().previousAttempt()).isNotNull();
         assertThat(pipelineCaptor.getValue().previousAttempt().id()).isEqualTo(buildID(prevAttempt));
+    }
+
+    @Test
+    public void shouldSendWebhookWithGitInformation() {
+        // Setup
+        SBuild pipelineBuild = new MockBuild.Builder(1).isComposite().addGitInformation().build();
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
+
+        // When
+        notificator.onFinishedBuild(pipelineBuild);
+
+        // Then
+        ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Pipeline pipelineWebhook = pipelineCaptor.getValue();
+        assertThat(pipelineWebhook.uniqueId()).isEqualTo(String.valueOf(1));
+
+        GitInfo gitInfo = pipelineWebhook.gitInfo();
+        assertThat(gitInfo).isNotNull();
+        assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
+        assertThat(gitInfo.authorTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.commitTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
+        assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
+        assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);
+        assertThat(gitInfo.defaultBranch()).isEqualTo(DEFAULT_BRANCH);
+        assertThat(gitInfo.repositoryURL()).isEqualTo(DEFAULT_REPO_URL);
+    }
+
+    @Test
+    public void shouldRetrieveGitInformationFromPreviousBuilds() {
+        // Setup
+        SFinishedBuild firstAttempt = new MockBuild.Builder(1)
+                .isComposite().addGitInformation().buildFinished();
+        SFinishedBuild secondAttempt = new MockBuild.Builder(2)
+                .isComposite().isTriggeredByReply().withPreviousAttempt(firstAttempt).buildFinished();
+        SBuild thirdAttempt = new MockBuild.Builder(3)
+                .isComposite().isTriggeredByReply().withPreviousAttempt(secondAttempt).build();
+
+        when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(thirdAttempt);
+
+        // When
+        notificator.onFinishedBuild(thirdAttempt);
+
+        // Then
+        ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Pipeline pipelineWebhook = pipelineCaptor.getValue();
+        assertThat(pipelineWebhook.uniqueId()).isEqualTo(String.valueOf(3));
+
+        // Git information should be present because it's taken from first attempt
+        GitInfo gitInfo = pipelineWebhook.gitInfo();
+        assertThat(gitInfo).isNotNull();
+        assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
+        assertThat(gitInfo.authorTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.commitTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
+        assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
+        assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);
+        assertThat(gitInfo.defaultBranch()).isEqualTo(DEFAULT_BRANCH);
+        assertThat(gitInfo.repositoryURL()).isEqualTo(DEFAULT_REPO_URL);
     }
 }

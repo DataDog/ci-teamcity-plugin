@@ -102,7 +102,7 @@ public class CIEntityFactory {
             .withCommitterName(change.getUserName())
             .withAuthorName(change.getUserName())
             .withCommitTime(toRFC3339(change.getCommitDate()))
-            .withAuthorTime(toRFC3339(change.getCommitDate()))
+            .withAuthorTime(toRFC3339(change.getVcsDate()))
             .withAuthorEmail(email)
             .withCommitterEmail(email)
             .withBranch(getBranch(eligibleBuild));

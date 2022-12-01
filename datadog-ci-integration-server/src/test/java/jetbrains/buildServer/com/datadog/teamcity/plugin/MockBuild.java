@@ -168,6 +168,7 @@ public class MockBuild {
             when(changeMock.getCommitters()).thenReturn(committersMocks);
 
             when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
             when(changeMock.getDescription()).thenReturn("Description");
             when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
             when(changeMock.getUserName()).thenReturn(DEFAULT_COMMIT_USERNAME);

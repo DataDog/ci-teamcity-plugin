@@ -38,8 +38,8 @@ public class CIEntityFactory {
     // We only support these failure types as they usually have more descriptive messages
     // (Otherwise we might encounter things like "exit status code 1")
     private static final Map<String, String> SUPPORTED_FAILURE_TYPES_MAP = new HashMap<String, String>() {{
-        put(TC_FAILED_TESTS_TYPE, "Failed Tests");
-        put(SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE, "Failed Snapshot Dependencies");
+        put(TC_FAILED_TESTS_TYPE, "Tests Failed");
+        put(SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE, "Snapshot Dependencies Failed");
     }};
 
     protected static final String CHECKOUT_DIR = "system.teamcity.build.checkoutDir";

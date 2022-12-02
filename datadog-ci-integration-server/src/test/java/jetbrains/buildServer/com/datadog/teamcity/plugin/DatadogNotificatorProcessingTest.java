@@ -319,7 +319,7 @@ public class DatadogNotificatorProcessingTest {
         Job.ErrorInfo errorInfo = jobWebhook.errorInfo();
         assertThat(errorInfo).isNotNull();
         assertThat(errorInfo.message()).isEqualTo(DEFAULT_FAILURE_MESSAGE);
-        assertThat(errorInfo.type()).isEqualTo("Failed Tests");
+        assertThat(errorInfo.type()).isEqualTo("Tests Failed");
         assertThat(errorInfo.domain()).isEqualTo(PROVIDER);
     }
 

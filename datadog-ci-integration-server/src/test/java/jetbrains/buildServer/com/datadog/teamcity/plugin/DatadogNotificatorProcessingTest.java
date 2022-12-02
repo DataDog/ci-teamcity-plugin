@@ -15,7 +15,20 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.*;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_BRANCH;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_CHECKOUT_DIR;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_COMMIT_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_COMMIT_SHA;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_COMMIT_USERNAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_END_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_HOSTNAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_PROJECT_ID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_REPO_URL;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +68,7 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldIgnoreNullBuilds() {
         // Setup
-        SBuild mockSBuild = new MockBuild.Builder(1).isComposite().build();
+        SBuild mockSBuild = new MockBuild.Builder(1, PIPELINE).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(null);
 
         notificator.onFinishedBuild(mockSBuild);
@@ -65,7 +78,7 @@ public class DatadogNotificatorProcessingTest {
 
     @Test
     public void shouldIgnoreCompositeBuildWithDependents() {
-        SBuild compositeBuildMock = new MockBuild.Builder(1).isComposite().withNumOfDependents(1).build();
+        SBuild compositeBuildMock = new MockBuild.Builder(1, PIPELINE).withNumOfDependents(1).build();
 
         notificator.onFinishedBuild(compositeBuildMock);
 
@@ -75,7 +88,7 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldSendWebhookForPipelineBuild() {
         // Setup
-        SBuild pipelineBuild = new MockBuild.Builder(1).isComposite().build();
+        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
         // When
@@ -92,15 +105,17 @@ public class DatadogNotificatorProcessingTest {
         assertThat(pipelineWebhook.start()).isEqualTo(toRFC3339(DEFAULT_START_DATE));
         assertThat(pipelineWebhook.end()).isEqualTo(toRFC3339(DEFAULT_END_DATE));
         assertThat(pipelineWebhook.url()).isEqualTo("root-url/build/1");
+
         assertThat(pipelineWebhook.isPartialRetry()).isFalse();
         assertThat(pipelineWebhook.previousAttempt()).isNull();
+        assertThat(pipelineWebhook.gitInfo()).isNull();
     }
 
     @Test
     public void shouldSendWebhookForJobBuild() {
         // Setup
-        SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
-        SBuild pipelineBuild =new MockBuild.Builder(2).isComposite().build();
+        SBuild jobBuild = new MockBuild.Builder(1, JOB).withNumOfDependents(3).build();
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE).build();
 
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
         when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.of(pipelineBuild));
@@ -125,7 +140,7 @@ public class DatadogNotificatorProcessingTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionForJobWithoutPipeline() {
         // Setup
-        SBuild jobBuild = new MockBuild.Builder(1).withNumOfDependents(3).build();
+        SBuild jobBuild = new MockBuild.Builder(1, JOB).withNumOfDependents(3).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
         when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.empty());
 
@@ -136,9 +151,9 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldHandleManualRetries() {
         // Setup
-        SFinishedBuild prevAttempt = new MockBuild.Builder(1).isComposite().buildFinished();
-        SBuild pipelineRetry = new MockBuild.Builder(2)
-                .isComposite().isTriggeredByUser().withPreviousAttempt(prevAttempt).build();
+        SFinishedBuild prevAttempt = new MockBuild.Builder(1, PIPELINE).buildFinished();
+        SBuild pipelineRetry = new MockBuild.Builder(2, PIPELINE)
+                .isTriggeredByUser().withPreviousAttempt(prevAttempt).build();
 
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineRetry);
 
@@ -159,9 +174,9 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldHandleAutomaticRetries() {
         // Setup
-        SFinishedBuild prevAttempt = new MockBuild.Builder(1).isComposite().buildFinished();
-        SBuild pipelineRetry = new MockBuild.Builder(2)
-                .isComposite().isTriggeredByReply().withPreviousAttempt(prevAttempt).build();
+        SFinishedBuild prevAttempt = new MockBuild.Builder(1, PIPELINE).buildFinished();
+        SBuild pipelineRetry = new MockBuild.Builder(2, PIPELINE)
+                .isTriggeredByReply().withPreviousAttempt(prevAttempt).build();
 
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineRetry);
 
@@ -182,7 +197,7 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldSendWebhookWithGitInformation() {
         // Setup
-        SBuild pipelineBuild = new MockBuild.Builder(1).isComposite().addGitInformation().build();
+        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).addGitInformation().build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
         // When
@@ -211,12 +226,12 @@ public class DatadogNotificatorProcessingTest {
     @Test
     public void shouldRetrieveGitInformationFromPreviousBuilds() {
         // Setup
-        SFinishedBuild firstAttempt = new MockBuild.Builder(1)
-                .isComposite().addGitInformation().buildFinished();
-        SFinishedBuild secondAttempt = new MockBuild.Builder(2)
-                .isComposite().isTriggeredByReply().withPreviousAttempt(firstAttempt).buildFinished();
-        SBuild thirdAttempt = new MockBuild.Builder(3)
-                .isComposite().isTriggeredByReply().withPreviousAttempt(secondAttempt).build();
+        SFinishedBuild firstAttempt = new MockBuild.Builder(1, PIPELINE)
+                .addGitInformation().buildFinished();
+        SFinishedBuild secondAttempt = new MockBuild.Builder(2, PIPELINE)
+                .isTriggeredByReply().withPreviousAttempt(firstAttempt).buildFinished();
+        SBuild thirdAttempt = new MockBuild.Builder(3, PIPELINE)
+                .isTriggeredByReply().withPreviousAttempt(secondAttempt).build();
 
         when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(thirdAttempt);
 
@@ -242,5 +257,32 @@ public class DatadogNotificatorProcessingTest {
         assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);
         assertThat(gitInfo.defaultBranch()).isEqualTo(DEFAULT_BRANCH);
         assertThat(gitInfo.repositoryURL()).isEqualTo(DEFAULT_REPO_URL);
+    }
+
+    @Test
+    public void shouldSendWebhookWithNodeInformation() {
+        // Setup
+        SBuild jobBuild = new MockBuild.Builder(1, JOB).addNodeInformation().build();
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE).build();
+
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
+        when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.of(pipelineBuild));
+
+        // When
+        notificator.onFinishedBuild(jobBuild);
+
+        // Then
+        ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(jobCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Job jobWebhook = jobCaptor.getValue();
+        assertThat(jobWebhook.id()).isEqualTo(String.valueOf(1));
+
+        Job.HostInfo hostInfo = jobWebhook.hostInfo();
+        assertThat(hostInfo).isNotNull();
+        assertThat(hostInfo.hostname()).isEqualTo(DEFAULT_NODE_HOSTNAME);
+        assertThat(hostInfo.name()).isEqualTo(DEFAULT_NODE_NAME);
+        assertThat(hostInfo.workspace()).isEqualTo(DEFAULT_CHECKOUT_DIR);
     }
 }

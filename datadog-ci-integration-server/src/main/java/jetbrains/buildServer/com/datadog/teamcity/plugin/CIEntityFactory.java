@@ -1,10 +1,8 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.*;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.HostInfo;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
@@ -21,6 +19,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils
 @Component
 public class CIEntityFactory {
 
+    protected static final String CHECKOUT_DIR = "system.teamcity.build.checkoutDir";
     private static final Logger LOG = Logger.getInstance(CIEntityFactory.class.getName());
 
     private final SBuildServer buildServer;
@@ -71,7 +70,7 @@ public class CIEntityFactory {
                 .map(pipelineBuild -> new PipelineInfo(buildID(pipelineBuild), pipelineBuild.getFullName()))
                 .orElseThrow(() -> new IllegalArgumentException(format("Could not find pipeline build for job build %s", build)));
 
-        return new Job(
+        Job job = new Job(
                 build.getFullName(),
                 buildURL(build),
                 toRFC3339(build.getStartDate()),
@@ -79,8 +78,9 @@ public class CIEntityFactory {
                 pipelineInfo.id,
                 pipelineInfo.name,
                 buildID(build),
-                build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR
-        );
+                build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR);
+
+        return job.withHostInfo(getHostInfo(build));
     }
 
     private GitInfo getGitInfo(SBuild build) {
@@ -158,6 +158,13 @@ public class CIEntityFactory {
         }
 
         return committers.get(0).getUsername();
+    }
+
+    private HostInfo getHostInfo(SBuild build) {
+        return new Job.HostInfo()
+                .withHostname(build.getAgent().getHostAddress())
+                .withName(build.getAgent().getHostName())
+                .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR));
     }
 
     private String buildURL(SBuild build) {

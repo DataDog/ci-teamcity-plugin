@@ -2,7 +2,13 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.google.common.collect.ImmutableMap;
 import jetbrains.buildServer.messages.Status;
-import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.parameters.ParametersProvider;
+import jetbrains.buildServer.serverSide.Branch;
+import jetbrains.buildServer.serverSide.BuildPromotion;
+import jetbrains.buildServer.serverSide.SBuild;
+import jetbrains.buildServer.serverSide.SBuildAgent;
+import jetbrains.buildServer.serverSide.SFinishedBuild;
+import jetbrains.buildServer.serverSide.TriggeredBy;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
 import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
@@ -15,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.CIEntityFactory.CHECKOUT_DIR;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,6 +36,9 @@ public class MockBuild {
     public static final String DEFAULT_BRANCH = "main";
     public static final String DEFAULT_COMMIT_SHA = "sha";
     public static final String DEFAULT_COMMIT_USERNAME = "username";
+    public static final String DEFAULT_CHECKOUT_DIR = "default-checkout-dir";
+    public static final String DEFAULT_NODE_HOSTNAME = "default-hostname";
+    public static final String DEFAULT_NODE_NAME = "default-name";
     public static final Status DEFAULT_STATUS = Status.NORMAL;
 
     public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
@@ -49,6 +59,10 @@ public class MockBuild {
         when(buildMock.getBranch()).thenReturn(b.branchMock);
         when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
 
+        ParametersProvider parametersProviderMock = mock(ParametersProvider.class);
+        when(parametersProviderMock.get(CHECKOUT_DIR)).thenReturn(DEFAULT_CHECKOUT_DIR);
+        when(buildMock.getParametersProvider()).thenReturn(parametersProviderMock);
+
         BuildPromotion buildPromotionMock = mock(BuildPromotion.class);
         when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependentsNum);
         when(buildPromotionMock.isCompositeBuild()).thenReturn(b.isComposite);
@@ -57,6 +71,7 @@ public class MockBuild {
         when(buildMock.getBuildPromotion()).thenReturn(buildPromotionMock);
 
         when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
+        when(buildMock.getAgent()).thenReturn(b.agentMock);
 
         return buildMock;
     }
@@ -83,9 +98,18 @@ public class MockBuild {
 
         List<SVcsModification> changesListMock = new ArrayList<>();
         private Branch branchMock;
+        private SBuildAgent agentMock;
 
-        public Builder(long id) {
+        public Builder(long id, MockBuild.BuildType buildType) {
             this.id = id;
+
+            if (buildType == MockBuild.BuildType.PIPELINE) {
+                this.isComposite = true;
+            } else if (buildType == MockBuild.BuildType.JOB) {
+                agentMock = mock(SBuildAgent.class);
+                when(agentMock.getHostAddress()).thenReturn("");
+                when(agentMock.getHostName()).thenReturn("");
+            }
         }
 
         public Builder isTriggeredByUser() {
@@ -125,11 +149,6 @@ public class MockBuild {
 
         public Builder withPreviousAttempt(SFinishedBuild previousAttempt) {
             this.previousAttempt = previousAttempt;
-            return this;
-        }
-
-        public Builder isComposite() {
-            this.isComposite = true;
             return this;
         }
 
@@ -177,6 +196,12 @@ public class MockBuild {
             return this;
         }
 
+        public Builder addNodeInformation() {
+            when(agentMock.getHostAddress()).thenReturn(DEFAULT_NODE_HOSTNAME);
+            when(agentMock.getHostName()).thenReturn(DEFAULT_NODE_NAME);
+            return this;
+        }
+
         public SBuild build() {
             return fromBuilder(this);
         }
@@ -184,5 +209,9 @@ public class MockBuild {
         public SFinishedBuild buildFinished() {
             return fromBuilder(this, SFinishedBuild.class);
         }
+    }
+
+    enum BuildType {
+        JOB, PIPELINE;
     }
 }

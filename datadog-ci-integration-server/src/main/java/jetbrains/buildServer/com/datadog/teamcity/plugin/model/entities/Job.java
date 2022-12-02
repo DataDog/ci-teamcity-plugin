@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.JOB;
 
@@ -24,6 +25,10 @@ public class Job extends CIEntity {
     @JsonProperty
     @Nonnull
     private final JobStatus status;
+
+    @JsonProperty("node")
+    @Nullable
+    protected HostInfo hostInfo; // Not available for pipelines as composite builds are not run in agents
 
     public Job(@Nonnull String name,
                @Nonnull String url,
@@ -65,6 +70,16 @@ public class Job extends CIEntity {
         return id;
     }
 
+    @Nullable
+    public HostInfo hostInfo() {
+        return hostInfo;
+    }
+
+    public Job withHostInfo(@Nullable HostInfo hostInfo) {
+        this.hostInfo = hostInfo;
+        return this;
+    }
+
     public enum JobStatus {
         SUCCESS, ERROR;
 
@@ -73,4 +88,47 @@ public class Job extends CIEntity {
             return toString().toLowerCase();
         }
     }
+
+    public static class HostInfo {
+        @JsonProperty("hostname") private String hostname;
+        @JsonProperty("name") private String name;
+        @JsonProperty("workspace") private String workspace;
+
+        public String hostname() {
+            return hostname;
+        }
+
+        public HostInfo withHostname(String hostname) {
+            this.hostname = hostname;
+            return this;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public HostInfo withName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public String workspace() {
+            return workspace;
+        }
+
+        public HostInfo withWorkspace(String workspace) {
+            this.workspace = workspace;
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return "HostInfo{" +
+                    "hostname='" + hostname + '\'' +
+                    ", name='" + name + '\'' +
+                    ", workspace='" + workspace + '\'' +
+                    '}';
+        }
+    }
+
 }

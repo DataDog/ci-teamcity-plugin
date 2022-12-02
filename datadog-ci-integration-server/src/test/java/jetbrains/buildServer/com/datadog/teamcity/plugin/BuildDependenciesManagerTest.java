@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class BuildDependenciesManagerTest {
@@ -17,8 +19,8 @@ public class BuildDependenciesManagerTest {
     @Test
     public void shouldRetrievePipelineForDirectDependency() {
         // Setup: job build -> pipeline build
-        SBuild pipelineBuild = new MockBuild.Builder(2).isComposite().build();
-        SBuild jobBuild = new MockBuild.Builder(1)
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE).build();
+        SBuild jobBuild = new MockBuild.Builder(1, JOB)
                 .withDependents(singletonList(pipelineBuild))
                 .build();
 
@@ -32,14 +34,14 @@ public class BuildDependenciesManagerTest {
         //                 |-> test1 -|
         // Setup: compile -|          |-> aggregate (pipeline build)
         //                 |-> test2 -|
-        SBuild pipelineBuild = new MockBuild.Builder(4).isComposite().build();
-        SBuild testBuild1 = new MockBuild.Builder(3)
+        SBuild pipelineBuild = new MockBuild.Builder(4, PIPELINE).build();
+        SBuild testBuild1 = new MockBuild.Builder(3, JOB)
                 .withDependents(singletonList(pipelineBuild))
                 .build();
-        SBuild testBuild2 = new MockBuild.Builder(2)
+        SBuild testBuild2 = new MockBuild.Builder(2, JOB)
                 .withDependents(singletonList(pipelineBuild))
                 .build();
-        SBuild compileBuild = new MockBuild.Builder(1)
+        SBuild compileBuild = new MockBuild.Builder(1, JOB)
                 .withDependents(Arrays.asList(testBuild1, testBuild2))
                 .build();
 
@@ -50,7 +52,7 @@ public class BuildDependenciesManagerTest {
 
     @Test
     public void shouldReturnEmptyIfPipelineNotFound() {
-        SBuild jobBuild = new MockBuild.Builder(1)
+        SBuild jobBuild = new MockBuild.Builder(1, JOB)
                 .withDependents(emptyList())
                 .build();
 

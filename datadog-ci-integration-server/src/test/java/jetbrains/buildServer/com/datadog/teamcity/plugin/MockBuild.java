@@ -1,6 +1,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.google.common.collect.ImmutableMap;
+import jetbrains.buildServer.BuildProblemData;
 import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.parameters.ParametersProvider;
 import jetbrains.buildServer.serverSide.Branch;
@@ -39,6 +40,7 @@ public class MockBuild {
     public static final String DEFAULT_CHECKOUT_DIR = "default-checkout-dir";
     public static final String DEFAULT_NODE_HOSTNAME = "default-hostname";
     public static final String DEFAULT_NODE_NAME = "default-name";
+    public static final String DEFAULT_FAILURE_MESSAGE = "default-failure-message";
     public static final Status DEFAULT_STATUS = Status.NORMAL;
 
     public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
@@ -58,6 +60,8 @@ public class MockBuild {
 
         when(buildMock.getBranch()).thenReturn(b.branchMock);
         when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
+        when(buildMock.getFailureReasons()).thenReturn(b.failureReasons);
+        when(buildMock.isInternalError()).thenReturn(true);
 
         ParametersProvider parametersProviderMock = mock(ParametersProvider.class);
         when(parametersProviderMock.get(CHECKOUT_DIR)).thenReturn(DEFAULT_CHECKOUT_DIR);
@@ -99,6 +103,7 @@ public class MockBuild {
         List<SVcsModification> changesListMock = new ArrayList<>();
         private Branch branchMock;
         private SBuildAgent agentMock;
+        private List<BuildProblemData> failureReasons = new ArrayList<>();
 
         public Builder(long id, MockBuild.BuildType buildType) {
             this.id = id;
@@ -144,6 +149,14 @@ public class MockBuild {
 
         public Builder withEndDate(Date endDate) {
             this.endDate = endDate;
+            return this;
+        }
+
+        public Builder withFailureReason(String type) {
+            BuildProblemData failureMock = mock(BuildProblemData.class);
+            when(failureMock.getDescription()).thenReturn(DEFAULT_FAILURE_MESSAGE);
+            when(failureMock.getType()).thenReturn(type);
+            this.failureReasons.add(failureMock);
             return this;
         }
 

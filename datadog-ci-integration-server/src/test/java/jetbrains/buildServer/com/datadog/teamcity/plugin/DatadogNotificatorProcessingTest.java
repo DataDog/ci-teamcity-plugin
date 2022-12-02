@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 
+import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
@@ -30,6 +31,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_HOSTNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_PROJECT_ID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_QUEUE_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_REPO_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
@@ -144,6 +146,7 @@ public class DatadogNotificatorProcessingTest {
         assertThat(jobWebhook.start()).isEqualTo(toRFC3339(DEFAULT_START_DATE));
         assertThat(jobWebhook.end()).isEqualTo(toRFC3339(DEFAULT_END_DATE));
         assertThat(jobWebhook.url()).isEqualTo("root-url/build/1");
+        assertThat(jobWebhook.queueTimeMs()).isEqualTo(DEFAULT_START_DATE.getTime() - DEFAULT_QUEUE_DATE.getTime());
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -346,5 +349,30 @@ public class DatadogNotificatorProcessingTest {
 
         Job.ErrorInfo errorInfo = jobWebhook.errorInfo();
         assertThat(errorInfo).isNull();
+    }
+
+    @Test
+    public void shouldIncludeDependenciesForJob() {
+        // Setup
+        SBuild jobCompile = new MockBuild.Builder(1, JOB).build();
+        SBuild jobTest = new MockBuild.Builder(2, JOB)
+                .withDependencies(singletonList(jobCompile))
+                .build();
+        SBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE).build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(jobTest);
+        when(dependenciesManagerMock.getPipelineBuild(jobTest)).thenReturn(Optional.of(pipelineBuild));
+
+        // When
+        notificator.onFinishedBuild(jobTest);
+
+        // Then
+        ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(jobCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Job jobWebhook = jobCaptor.getValue();
+        assertThat(jobWebhook.id()).isEqualTo(String.valueOf(2));
+        assertThat(jobWebhook.dependencies()).isEqualTo(singletonList("1"));
     }
 }

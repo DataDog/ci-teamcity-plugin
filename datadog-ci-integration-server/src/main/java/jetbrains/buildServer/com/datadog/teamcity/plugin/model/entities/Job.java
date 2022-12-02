@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.JOB;
 
@@ -26,6 +27,13 @@ public class Job extends CIEntity {
     @Nonnull
     private final JobStatus status;
 
+    @JsonProperty("queue_time")
+    private final long queueTimeMs;
+
+    @JsonProperty
+    @Nonnull
+    private final List<String> dependencies;
+
     @JsonProperty("node")
     @Nullable
     protected HostInfo hostInfo; // Not available for pipelines as composite builds are not run in agents
@@ -41,12 +49,16 @@ public class Job extends CIEntity {
                @Nonnull String pipelineID,
                @Nonnull String pipelineName,
                @Nonnull String id,
-               @Nonnull JobStatus status) {
+               @Nonnull JobStatus status,
+               @Nonnull List<String> dependencies,
+               long queueTimeMs) {
         super(JOB, name, url, start, end);
         this.pipelineID = pipelineID;
         this.pipelineName = pipelineName;
         this.id = id;
         this.status = status;
+        this.queueTimeMs = queueTimeMs;
+        this.dependencies = dependencies;
     }
 
     @Override
@@ -72,6 +84,15 @@ public class Job extends CIEntity {
     @Nonnull
     public String id() {
         return id;
+    }
+
+    public long queueTimeMs() {
+        return queueTimeMs;
+    }
+
+    @Nonnull
+    public List<String> dependencies() {
+        return dependencies;
     }
 
     @Nullable

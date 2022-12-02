@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.JOB;
 
@@ -24,6 +25,10 @@ public class Job extends CIEntity {
     @JsonProperty
     @Nonnull
     private final JobStatus status;
+
+    @JsonProperty("node")
+    @Nullable
+    protected HostInfo hostInfo; // Not available for pipelines as composite builds are not run in agents
 
     public Job(@Nonnull String name,
                @Nonnull String url,
@@ -63,6 +68,16 @@ public class Job extends CIEntity {
     @Nonnull
     public String id() {
         return id;
+    }
+
+    @Nullable
+    public HostInfo hostInfo() {
+        return hostInfo;
+    }
+
+    public Job withHostInfo(@Nullable HostInfo hostInfo) {
+        this.hostInfo = hostInfo;
+        return this;
     }
 
     public enum JobStatus {

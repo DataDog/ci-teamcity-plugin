@@ -30,6 +30,10 @@ public class Job extends CIEntity {
     @Nullable
     protected HostInfo hostInfo; // Not available for pipelines as composite builds are not run in agents
 
+    @JsonProperty("error")
+    @Nullable
+    protected ErrorInfo errorInfo;
+
     public Job(@Nonnull String name,
                @Nonnull String url,
                @Nonnull String start,
@@ -77,6 +81,16 @@ public class Job extends CIEntity {
 
     public Job withHostInfo(@Nullable HostInfo hostInfo) {
         this.hostInfo = hostInfo;
+        return this;
+    }
+
+    @Nullable
+    public ErrorInfo errorInfo() {
+        return errorInfo;
+    }
+
+    public Job withErrorInfo(@Nullable ErrorInfo errorInfo) {
+        this.errorInfo = errorInfo;
         return this;
     }
 
@@ -130,5 +144,48 @@ public class Job extends CIEntity {
                     '}';
         }
     }
+
+    public static class ErrorInfo {
+        @JsonProperty("message") private final String message;
+        @JsonProperty("type") private final String type;
+        @JsonProperty("domain") private final ErrorDomain domain;
+
+        public ErrorInfo(String message, String type, ErrorDomain domain) {
+            this.message = message;
+            this.type = type;
+            this.domain = domain;
+        }
+
+        public String message() {
+            return message;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public ErrorDomain domain() {
+            return domain;
+        }
+
+        @Override
+        public String toString() {
+            return "ErrorInfo{" +
+                    "message='" + message + '\'' +
+                    ", type='" + type + '\'' +
+                    '}';
+        }
+
+        public enum ErrorDomain {
+            PROVIDER, USER;
+
+            @JsonValue
+            public String toLowerCase() {
+                return toString().toLowerCase();
+            }
+        }
+    }
+
+
 
 }

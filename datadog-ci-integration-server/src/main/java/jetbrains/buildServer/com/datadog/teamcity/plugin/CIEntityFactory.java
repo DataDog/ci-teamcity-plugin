@@ -1,8 +1,13 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.*;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.HostInfo;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
@@ -11,13 +16,31 @@ import jetbrains.buildServer.vcs.SVcsModification;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.*;
+import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.hasChanges;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isJobBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPartialRetry;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPipelineBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.USER;
+import static jetbrains.buildServer.messages.ErrorData.SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE;
 
 @Component
 public class CIEntityFactory {
+
+    // We only support these failure types as they usually have more descriptive messages
+    // (Otherwise we might encounter things like "exit status code 1")
+    private static final Map<String, String> SUPPORTED_FAILURE_TYPES_MAP = new HashMap<String, String>() {{
+        put(TC_FAILED_TESTS_TYPE, "Tests Failed");
+        put(SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE, "Snapshot Dependencies Failed");
+    }};
 
     protected static final String CHECKOUT_DIR = "system.teamcity.build.checkoutDir";
     private static final Logger LOG = Logger.getInstance(CIEntityFactory.class.getName());
@@ -80,7 +103,9 @@ public class CIEntityFactory {
                 buildID(build),
                 build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR);
 
-        return job.withHostInfo(getHostInfo(build));
+        return job
+                .withHostInfo(getHostInfo(build))
+                .withErrorInfo(getErrorInfo(build));
     }
 
     private GitInfo getGitInfo(SBuild build) {
@@ -165,6 +190,19 @@ public class CIEntityFactory {
                 .withHostname(build.getAgent().getHostAddress())
                 .withName(build.getAgent().getHostName())
                 .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR));
+    }
+
+    private ErrorInfo getErrorInfo(SBuild build) {
+        if (!build.getBuildStatus().isFailed()) {
+            return null;
+        }
+
+        ErrorDomain domain = build.isInternalError() ? PROVIDER : USER;
+        return build.getFailureReasons().stream()
+                .filter(failure -> SUPPORTED_FAILURE_TYPES_MAP.containsKey(failure.getType()))
+                .findFirst()
+                .map(failure -> new ErrorInfo(failure.getDescription(), SUPPORTED_FAILURE_TYPES_MAP.get(failure.getType()), domain))
+                .orElse(null);
     }
 
     private String buildURL(SBuild build) {

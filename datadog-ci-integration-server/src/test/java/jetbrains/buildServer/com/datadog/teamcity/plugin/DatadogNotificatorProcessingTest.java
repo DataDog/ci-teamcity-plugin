@@ -4,6 +4,7 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectP
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
+import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.notification.NotificatorRegistry;
 import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -15,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 
+import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_BRANCH;
@@ -23,6 +25,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_COMMIT_SHA;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_COMMIT_USERNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_END_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_FAILURE_MESSAGE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_HOSTNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_NODE_NAME;
@@ -31,8 +34,14 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 
 public class DatadogNotificatorProcessingTest {
 
@@ -284,5 +293,58 @@ public class DatadogNotificatorProcessingTest {
         assertThat(hostInfo.hostname()).isEqualTo(DEFAULT_NODE_HOSTNAME);
         assertThat(hostInfo.name()).isEqualTo(DEFAULT_NODE_NAME);
         assertThat(hostInfo.workspace()).isEqualTo(DEFAULT_CHECKOUT_DIR);
+    }
+
+    @Test
+    public void shouldSendWebhookWithFailureReason() {
+        // Setup
+        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+                .withStatus(Status.FAILURE).withFailureReason(TC_FAILED_TESTS_TYPE).build();
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE).build();
+
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
+        when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.of(pipelineBuild));
+
+        // When
+        notificator.onFinishedBuild(jobBuild);
+
+        // Then
+        ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(jobCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Job jobWebhook = jobCaptor.getValue();
+        assertThat(jobWebhook.id()).isEqualTo(String.valueOf(1));
+
+        Job.ErrorInfo errorInfo = jobWebhook.errorInfo();
+        assertThat(errorInfo).isNotNull();
+        assertThat(errorInfo.message()).isEqualTo(DEFAULT_FAILURE_MESSAGE);
+        assertThat(errorInfo.type()).isEqualTo("Tests Failed");
+        assertThat(errorInfo.domain()).isEqualTo(PROVIDER);
+    }
+
+    @Test
+    public void shouldNotIncludeFailureReasonForUnsupportedTypes() {
+        // Setup
+        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+                .withStatus(Status.FAILURE).withFailureReason("Unsupported type").build();
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE).build();
+
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(jobBuild);
+        when(dependenciesManagerMock.getPipelineBuild(jobBuild)).thenReturn(Optional.of(pipelineBuild));
+
+        // When
+        notificator.onFinishedBuild(jobBuild);
+
+        // Then
+        ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
+        verify(datadogClientMock, times(1))
+                .sendWebhook(jobCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        Job jobWebhook = jobCaptor.getValue();
+        assertThat(jobWebhook.id()).isEqualTo(String.valueOf(1));
+
+        Job.ErrorInfo errorInfo = jobWebhook.errorInfo();
+        assertThat(errorInfo).isNull();
     }
 }

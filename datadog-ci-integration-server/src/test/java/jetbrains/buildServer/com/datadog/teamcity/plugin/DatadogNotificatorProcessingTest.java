@@ -2,7 +2,6 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.HostInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
 import jetbrains.buildServer.notification.NotificatorRegistry;
@@ -280,7 +279,7 @@ public class DatadogNotificatorProcessingTest {
         Job jobWebhook = jobCaptor.getValue();
         assertThat(jobWebhook.id()).isEqualTo(String.valueOf(1));
 
-        HostInfo hostInfo = jobWebhook.hostInfo();
+        Job.HostInfo hostInfo = jobWebhook.hostInfo();
         assertThat(hostInfo).isNotNull();
         assertThat(hostInfo.hostname()).isEqualTo(DEFAULT_NODE_HOSTNAME);
         assertThat(hostInfo.name()).isEqualTo(DEFAULT_NODE_NAME);

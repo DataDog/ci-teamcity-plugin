@@ -2,6 +2,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.*;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.HostInfo;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
@@ -160,7 +161,7 @@ public class CIEntityFactory {
     }
 
     private HostInfo getHostInfo(SBuild build) {
-        return new HostInfo()
+        return new Job.HostInfo()
                 .withHostname(build.getAgent().getHostAddress())
                 .withName(build.getAgent().getHostName())
                 .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR));

@@ -1,13 +1,15 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
+import com.google.common.collect.ImmutableMap;
 import jetbrains.buildServer.messages.Status;
-import jetbrains.buildServer.serverSide.BuildPromotion;
-import jetbrains.buildServer.serverSide.SBuild;
-import jetbrains.buildServer.serverSide.SFinishedBuild;
-import jetbrains.buildServer.serverSide.TriggeredBy;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
+import jetbrains.buildServer.users.SUser;
+import jetbrains.buildServer.vcs.SVcsModification;
+import jetbrains.buildServer.vcs.VcsRootInstance;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -23,10 +25,15 @@ public class MockBuild {
 
     public static final String DEFAULT_NAME = "Full Name";
     public static final String DEFAULT_PROJECT_ID = "Project ID";
+    public static final String DEFAULT_REPO_URL = "repository-url.com";
+    public static final String DEFAULT_BRANCH = "main";
+    public static final String DEFAULT_COMMIT_SHA = "sha";
+    public static final String DEFAULT_COMMIT_USERNAME = "username";
     public static final Status DEFAULT_STATUS = Status.NORMAL;
 
     public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
     public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(1005));
+    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(999));
 
     public static <T extends SBuild> T fromBuilder(Builder b, Class<T> clazz) {
         T buildMock = mock(clazz);
@@ -38,6 +45,9 @@ public class MockBuild {
         when(buildMock.getStartDate()).thenReturn(b.startDate);
         when(buildMock.getFinishDate()).thenReturn(b.endDate);
         when(buildMock.getPreviousFinished()).thenReturn(b.previousAttempt);
+
+        when(buildMock.getBranch()).thenReturn(b.branchMock);
+        when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
 
         BuildPromotion buildPromotionMock = mock(BuildPromotion.class);
         when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependentsNum);
@@ -70,6 +80,9 @@ public class MockBuild {
 
         private SFinishedBuild previousAttempt;
         private List<BuildDependency> dependents;
+
+        List<SVcsModification> changesListMock = new ArrayList<>();
+        private Branch branchMock;
 
         public Builder(long id) {
             this.id = id;
@@ -133,6 +146,34 @@ public class MockBuild {
                         return dependencyMock;
                     })
                     .collect(toList());
+            return this;
+        }
+
+        public Builder addGitInformation() {
+            VcsRootInstance vcsRootInstanceMock = mock(VcsRootInstance.class);
+            when(vcsRootInstanceMock.getProperties())
+                    .thenReturn(ImmutableMap.of("url", DEFAULT_REPO_URL));
+            when(vcsRootInstanceMock.getProperty("branch")).thenReturn(DEFAULT_BRANCH);
+
+            branchMock = mock(Branch.class);
+            when(branchMock.getDisplayName()).thenReturn(DEFAULT_BRANCH);
+
+            ArrayList<SUser> committersMocks = new ArrayList<>();
+            SUser userMock = mock(SUser.class);
+            when(userMock.getUsername()).thenReturn(DEFAULT_COMMIT_USERNAME);
+            committersMocks.add(userMock);
+
+            SVcsModification changeMock = mock(SVcsModification.class);
+            when(changeMock.getVcsRoot()).thenReturn(vcsRootInstanceMock);
+            when(changeMock.getCommitters()).thenReturn(committersMocks);
+
+            when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getDescription()).thenReturn("Description");
+            when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
+            when(changeMock.getUserName()).thenReturn(DEFAULT_COMMIT_USERNAME);
+
+            changesListMock.add(changeMock);
             return this;
         }
 

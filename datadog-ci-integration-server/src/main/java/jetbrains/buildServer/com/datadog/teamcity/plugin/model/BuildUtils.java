@@ -35,6 +35,10 @@ public final class BuildUtils {
         return String.valueOf(build.getBuildId());
     }
 
+    public static boolean hasChanges(SBuild build) {
+        return !build.getContainingChanges().isEmpty();
+    }
+
     /**
      * We ignore a composite build if it's not the last in the chain. This is because we don't want to report them on
      * the trace as they are not run in agents or have any steps (their only purpose is to aggregate previous results).

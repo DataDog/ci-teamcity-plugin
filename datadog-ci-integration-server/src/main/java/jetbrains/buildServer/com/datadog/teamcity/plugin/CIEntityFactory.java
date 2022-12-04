@@ -104,8 +104,11 @@ public class CIEntityFactory {
                 pipelineInfo.name,
                 buildID(build),
                 build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR,
-                dependenciesIds(build),
                 queueTimeMs(build));
+
+        if (!build.getBuildPromotion().getDependencies().isEmpty()) {
+            job.setDependenciesIds(dependenciesIds(build));
+        }
 
         return job
                 .withHostInfo(getHostInfo(build))

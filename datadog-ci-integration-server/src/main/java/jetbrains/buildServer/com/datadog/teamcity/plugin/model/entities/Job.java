@@ -30,9 +30,9 @@ public class Job extends CIEntity {
     @JsonProperty("queue_time")
     private final long queueTimeMs;
 
-    @JsonProperty
+    @JsonProperty("dependencies")
     @Nonnull
-    private final List<String> dependencies;
+    private List<String> dependenciesIds;
 
     @JsonProperty("node")
     @Nullable
@@ -50,7 +50,6 @@ public class Job extends CIEntity {
                @Nonnull String pipelineName,
                @Nonnull String id,
                @Nonnull JobStatus status,
-               @Nonnull List<String> dependencies,
                long queueTimeMs) {
         super(JOB, name, url, start, end);
         this.pipelineID = pipelineID;
@@ -58,7 +57,6 @@ public class Job extends CIEntity {
         this.id = id;
         this.status = status;
         this.queueTimeMs = queueTimeMs;
-        this.dependencies = dependencies;
     }
 
     @Override
@@ -92,7 +90,11 @@ public class Job extends CIEntity {
 
     @Nonnull
     public List<String> dependencies() {
-        return dependencies;
+        return dependenciesIds;
+    }
+
+    public void setDependenciesIds(@Nonnull List<String> dependenciesIds) {
+        this.dependenciesIds = dependenciesIds;
     }
 
     @Nullable

@@ -31,7 +31,7 @@ public class Job extends CIEntity {
     private final long queueTimeMs;
 
     @JsonProperty("dependencies")
-    @Nonnull
+    @Nullable
     private List<String> dependenciesIds;
 
     @JsonProperty("node")
@@ -88,12 +88,12 @@ public class Job extends CIEntity {
         return queueTimeMs;
     }
 
-    @Nonnull
+    @Nullable
     public List<String> dependencies() {
         return dependenciesIds;
     }
 
-    public void setDependenciesIds(@Nonnull List<String> dependenciesIds) {
+    public void setDependenciesIds(@Nullable List<String> dependenciesIds) {
         this.dependenciesIds = dependenciesIds;
     }
 

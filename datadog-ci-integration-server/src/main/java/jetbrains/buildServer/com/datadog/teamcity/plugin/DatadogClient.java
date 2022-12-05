@@ -39,6 +39,22 @@ public class DatadogClient {
         return sendWebhookWithRetries(url, payload, headers);
     }
 
+    private HttpHeaders getHeaders(String apiKey) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add(DD_API_KEY_HEADER, apiKey);
+        headers.add(DD_CI_PROVIDER_HEADER, TEAMCITY_PROVIDER);
+        return headers;
+    }
+
+    private String serialize(CIEntity entity) {
+        try {
+            return objectMapper.writeValueAsString(entity);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(format("Could not serialize the content of the entity: %s", entity), e);
+        }
+    }
+
     private boolean sendWebhookWithRetries(String url, String payload, HttpHeaders headers) {
         HttpEntity<String> request = new HttpEntity<>(payload, headers);
         int currentAttempt = 0;
@@ -72,22 +88,6 @@ public class DatadogClient {
         }
 
         return false;
-    }
-
-    private HttpHeaders getHeaders(String apiKey) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.add(DD_API_KEY_HEADER, apiKey);
-        headers.add(DD_CI_PROVIDER_HEADER, TEAMCITY_PROVIDER);
-        return headers;
-    }
-
-    private String serialize(CIEntity entity) {
-        try {
-            return objectMapper.writeValueAsString(entity);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(format("Could not serialize the content of the entity: %s", entity), e);
-        }
     }
 
     private void sleepSeconds(int seconds) {

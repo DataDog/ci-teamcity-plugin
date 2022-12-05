@@ -8,6 +8,7 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.Erro
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.HostInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline.RelatedPipeline;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
@@ -22,14 +23,14 @@ import java.util.Optional;
 
 import static java.lang.String.format;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.dependenciesIds;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.hasChanges;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isJobBuild;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPartialRetry;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPipelineBuild;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.queueTimeMs;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.dependenciesIds;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.hasChanges;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isJobBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPipelineBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.USER;
 import static jetbrains.buildServer.messages.ErrorData.SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE;
@@ -84,7 +85,7 @@ public class CIEntityFactory {
 
         if (isPartialRetry && build.getPreviousFinished() != null) {
             SBuild previousAttempt = build.getPreviousFinished();
-            pipeline.setPreviousAttempt(new Pipeline.RelatedPipeline(buildID(previousAttempt), buildURL(previousAttempt)));
+            pipeline.setPreviousAttempt(new RelatedPipeline(buildID(previousAttempt), buildURL(previousAttempt)));
         }
 
         return pipeline;

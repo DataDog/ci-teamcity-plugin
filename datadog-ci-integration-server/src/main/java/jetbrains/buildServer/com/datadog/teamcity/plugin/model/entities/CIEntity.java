@@ -11,23 +11,23 @@ import javax.annotation.Nullable;
  */
 public class CIEntity {
 
-    @JsonProperty
+    @JsonProperty("level")
     @Nonnull
     protected final CILevel level;
 
-    @JsonProperty
+    @JsonProperty("name")
     @Nonnull
     protected final String name;
 
-    @JsonProperty
+    @JsonProperty("url")
     @Nonnull
     protected final String url;
 
-    @JsonProperty
+    @JsonProperty("start")
     @Nonnull
     protected final String start;
 
-    @JsonProperty
+    @JsonProperty("end")
     @Nonnull
     protected final String end;
 
@@ -74,11 +74,7 @@ public class CIEntity {
     }
 
     public enum CILevel {
-        JOB, PIPELINE;
-
-        @JsonValue
-        public String toLowerCase() {
-            return toString().toLowerCase();
-        }
+        @JsonProperty("job") JOB,
+        @JsonProperty("pipeline") PIPELINE
     }
 }

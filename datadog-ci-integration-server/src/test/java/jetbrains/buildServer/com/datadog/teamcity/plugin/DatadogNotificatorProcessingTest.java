@@ -34,8 +34,8 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_QUEUE_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_REPO_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.DEFAULT_START_DATE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.eq;

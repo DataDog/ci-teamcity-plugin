@@ -6,6 +6,9 @@ import jetbrains.buildServer.serverSide.TriggeredBy;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+
+import static java.util.stream.Collectors.toList;
 
 public final class BuildUtils {
 
@@ -45,6 +48,17 @@ public final class BuildUtils {
      */
     public static boolean shouldBeIgnored(SBuild build) {
         return build.isCompositeBuild() && build.getBuildPromotion().getNumberOfDependedOnMe() > 0;
+    }
+
+    public static long queueTimeMs(SBuild build) {
+        return build.getStartDate().getTime() - build.getQueuedDate().getTime();
+    }
+
+    public static List<String> dependenciesIds(SBuild build) {
+        return build.getBuildPromotion().getDependencies().stream()
+                .filter(dep -> dep.getDependOn().getAssociatedBuild() != null)
+                .map(dep -> String.valueOf(dep.getDependOn().getAssociatedBuildId()))
+                .collect(toList());
     }
 
     public static String toRFC3339(Date date) {

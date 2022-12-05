@@ -43,9 +43,10 @@ public class MockBuild {
     public static final String DEFAULT_FAILURE_MESSAGE = "default-failure-message";
     public static final Status DEFAULT_STATUS = Status.NORMAL;
 
+    public static final Date DEFAULT_QUEUE_DATE = Date.from(Instant.ofEpochMilli(998));
     public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
     public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(1005));
-    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(999));
+    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(995));
 
     public static <T extends SBuild> T fromBuilder(Builder b, Class<T> clazz) {
         T buildMock = mock(clazz);
@@ -56,6 +57,7 @@ public class MockBuild {
         when(buildMock.isCompositeBuild()).thenReturn(b.isComposite);
         when(buildMock.getStartDate()).thenReturn(b.startDate);
         when(buildMock.getFinishDate()).thenReturn(b.endDate);
+        when(buildMock.getQueuedDate()).thenReturn(b.queueDate);
         when(buildMock.getPreviousFinished()).thenReturn(b.previousAttempt);
 
         when(buildMock.getBranch()).thenReturn(b.branchMock);
@@ -71,7 +73,9 @@ public class MockBuild {
         when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependentsNum);
         when(buildPromotionMock.isCompositeBuild()).thenReturn(b.isComposite);
         when(buildPromotionMock.getAssociatedBuild()).thenReturn(buildMock);
+        when(buildPromotionMock.getAssociatedBuildId()).thenReturn(b.id);
         doReturn(b.dependents).when(buildPromotionMock).getDependedOnMe();
+        doReturn(b.dependencies).when(buildPromotionMock).getDependencies();
         when(buildMock.getBuildPromotion()).thenReturn(buildPromotionMock);
 
         when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
@@ -96,9 +100,11 @@ public class MockBuild {
         private String projectID = DEFAULT_PROJECT_ID;
         private Date startDate = DEFAULT_START_DATE;
         private Date endDate = DEFAULT_END_DATE;
+        private Date queueDate = DEFAULT_QUEUE_DATE;
 
         private SFinishedBuild previousAttempt;
-        private List<BuildDependency> dependents;
+        private List<BuildDependency> dependents = new ArrayList<>();
+        private List<BuildDependency> dependencies = new ArrayList<>();
 
         List<SVcsModification> changesListMock = new ArrayList<>();
         private Branch branchMock;
@@ -152,6 +158,11 @@ public class MockBuild {
             return this;
         }
 
+        public Builder withQueueDate(Date queueDate) {
+            this.queueDate = queueDate;
+            return this;
+        }
+
         public Builder withFailureReason(String type) {
             BuildProblemData failureMock = mock(BuildProblemData.class);
             when(failureMock.getDescription()).thenReturn(DEFAULT_FAILURE_MESSAGE);
@@ -175,6 +186,17 @@ public class MockBuild {
                         BuildDependency dependencyMock = mock(BuildDependency.class);
                         BuildPromotion buildPromotion = build.getBuildPromotion();
                         when(dependencyMock.getDependent()).thenReturn(buildPromotion);
+                        return dependencyMock;
+                    })
+                    .collect(toList());
+            return this;
+        }
+
+        public Builder withDependencies(List<SBuild> dependencies) {
+            this.dependencies = dependencies.stream().map(build -> {
+                        BuildDependency dependencyMock = mock(BuildDependency.class);
+                        BuildPromotion buildPromotion = build.getBuildPromotion();
+                        when(dependencyMock.getDependOn()).thenReturn(buildPromotion);
                         return dependencyMock;
                     })
                     .collect(toList());

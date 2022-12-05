@@ -23,10 +23,12 @@ import java.util.Optional;
 import static java.lang.String.format;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.buildID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.dependenciesIds;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.hasChanges;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isJobBuild;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPartialRetry;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPipelineBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.queueTimeMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.USER;
@@ -101,7 +103,12 @@ public class CIEntityFactory {
                 pipelineInfo.id,
                 pipelineInfo.name,
                 buildID(build),
-                build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR);
+                build.getBuildStatus().isSuccessful() ? Job.JobStatus.SUCCESS : Job.JobStatus.ERROR,
+                queueTimeMs(build));
+
+        if (!build.getBuildPromotion().getDependencies().isEmpty()) {
+            job.setDependenciesIds(dependenciesIds(build));
+        }
 
         return job
                 .withHostInfo(getHostInfo(build))

@@ -21,7 +21,7 @@ public class Pipeline extends CIEntity {
     @JsonProperty("partial_retry")
     private final boolean partialRetry;
 
-    @JsonProperty
+    @JsonProperty("status")
     @Nonnull
     private final PipelineStatus status;
 
@@ -76,22 +76,18 @@ public class Pipeline extends CIEntity {
         return previousAttempt;
     }
 
-    public void setPreviousAttempt(RelatedPipeline previousAttempt) {
+    public void setPreviousAttempt(@Nullable RelatedPipeline previousAttempt) {
         this.previousAttempt = previousAttempt;
     }
 
     public enum PipelineStatus {
-        SUCCESS, ERROR;
-
-        @JsonValue
-        public String toLowerCase() {
-            return toString().toLowerCase();
-        }
+        @JsonProperty("success") SUCCESS,
+        @JsonProperty("error") ERROR
     }
 
     public static class RelatedPipeline {
-        @JsonProperty private final String id;
-        @JsonProperty private final String url;
+        @JsonProperty("id") private final String id;
+        @JsonProperty("url") private final String url;
 
         public RelatedPipeline(String id, String url) {
             this.id = id;

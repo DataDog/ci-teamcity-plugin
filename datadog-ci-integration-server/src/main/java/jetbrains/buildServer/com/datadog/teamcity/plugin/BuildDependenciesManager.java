@@ -8,7 +8,7 @@ import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
 
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.isPipelineBuild;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPipelineBuild;
 
 @Component
 public class BuildDependenciesManager {
@@ -26,7 +26,7 @@ public class BuildDependenciesManager {
             BuildPromotion currentBuild = buildsQueue.remove();
             if (isPipelineBuild(currentBuild)) {
                 // We can be sure that the build associated with the promotion is running (and it's not null)
-                // as composite builds start when the first dependency starts
+                // as composite builds start when their first dependency starts
                 return Optional.of(currentBuild.getAssociatedBuild());
             }
 

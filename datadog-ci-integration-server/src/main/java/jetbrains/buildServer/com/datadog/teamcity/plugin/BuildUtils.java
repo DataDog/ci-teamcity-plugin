@@ -1,4 +1,4 @@
-package jetbrains.buildServer.com.datadog.teamcity.plugin.model;
+package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;

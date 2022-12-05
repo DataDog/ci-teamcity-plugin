@@ -19,11 +19,11 @@ public class Job extends CIEntity {
     @Nonnull
     private final String pipelineName;
 
-    @JsonProperty
+    @JsonProperty("id")
     @Nonnull
     private final String id;
 
-    @JsonProperty
+    @JsonProperty("status")
     @Nonnull
     private final JobStatus status;
 
@@ -57,21 +57,6 @@ public class Job extends CIEntity {
         this.id = id;
         this.status = status;
         this.queueTimeMs = queueTimeMs;
-    }
-
-    @Override
-    public String toString() {
-        return "Job{" +
-                "pipelineID='" + pipelineID + '\'' +
-                ", pipelineName='" + pipelineName + '\'' +
-                ", id='" + id + '\'' +
-                ", status=" + status +
-                ", level=" + level +
-                ", name='" + name + '\'' +
-                ", url='" + url + '\'' +
-                ", start='" + start + '\'' +
-                ", end='" + end + '\'' +
-                "} " + super.toString();
     }
 
     @Nonnull
@@ -115,6 +100,21 @@ public class Job extends CIEntity {
     public Job withErrorInfo(@Nullable ErrorInfo errorInfo) {
         this.errorInfo = errorInfo;
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return "Job{" +
+                "pipelineID='" + pipelineID + '\'' +
+                ", pipelineName='" + pipelineName + '\'' +
+                ", id='" + id + '\'' +
+                ", status=" + status +
+                ", level=" + level +
+                ", name='" + name + '\'' +
+                ", url='" + url + '\'' +
+                ", start='" + start + '\'' +
+                ", end='" + end + '\'' +
+                "} " + super.toString();
     }
 
     public enum JobStatus {
@@ -208,7 +208,5 @@ public class Job extends CIEntity {
             }
         }
     }
-
-
 
 }

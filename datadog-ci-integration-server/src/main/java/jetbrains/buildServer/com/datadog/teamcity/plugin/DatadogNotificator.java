@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.BuildUtils.shouldBeIgnored;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.shouldBeIgnored;
 
 @Component
 public class DatadogNotificator extends NotificatorAdapter {

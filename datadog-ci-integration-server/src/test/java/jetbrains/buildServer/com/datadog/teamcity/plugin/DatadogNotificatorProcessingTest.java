@@ -161,29 +161,6 @@ public class DatadogNotificatorProcessingTest {
     }
 
     @Test
-    public void shouldHandleManualRetries() {
-        // Setup
-        SFinishedBuild prevAttempt = new MockBuild.Builder(1, PIPELINE).buildFinished();
-        SBuild pipelineRetry = new MockBuild.Builder(2, PIPELINE)
-                .isTriggeredByUser().withPreviousAttempt(prevAttempt).build();
-
-        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineRetry);
-
-        // When
-        notificator.onFinishedBuild(pipelineRetry);
-
-        // Then
-        ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
-        verify(datadogClientMock, times(1))
-                .sendWebhook(pipelineCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
-
-        assertThat(pipelineCaptor.getValue().uniqueId()).isEqualTo(String.valueOf(2));
-        assertThat(pipelineCaptor.getValue().isPartialRetry()).isTrue();
-        assertThat(pipelineCaptor.getValue().previousAttempt()).isNotNull();
-        assertThat(pipelineCaptor.getValue().previousAttempt().id()).isEqualTo(buildID(prevAttempt));
-    }
-
-    @Test
     public void shouldHandleAutomaticRetries() {
         // Setup
         SFinishedBuild prevAttempt = new MockBuild.Builder(1, PIPELINE).buildFinished();

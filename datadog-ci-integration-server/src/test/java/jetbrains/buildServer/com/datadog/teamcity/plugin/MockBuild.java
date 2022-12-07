@@ -15,7 +15,6 @@ import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
 import jetbrains.buildServer.vcs.VcsRootInstance;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -23,6 +22,21 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.CIEntityFactory.CHECKOUT_DIR;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_CHECKOUT_DIR;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_SHA;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_USERNAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_FAILURE_MESSAGE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_HOSTNAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_PROJECT_ID;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REPO_URL;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_STATUS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,23 +44,6 @@ import static org.mockito.Mockito.when;
 //TODO I don't see any way to instantiate 'dummy' TC builds for testing purposes,
 // so for now I'm creating this class able to construct mocked builds
 public class MockBuild {
-
-    public static final String DEFAULT_NAME = "Full Name";
-    public static final String DEFAULT_PROJECT_ID = "Project ID";
-    public static final String DEFAULT_REPO_URL = "repository-url.com";
-    public static final String DEFAULT_BRANCH = "main";
-    public static final String DEFAULT_COMMIT_SHA = "sha";
-    public static final String DEFAULT_COMMIT_USERNAME = "username";
-    public static final String DEFAULT_CHECKOUT_DIR = "default-checkout-dir";
-    public static final String DEFAULT_NODE_HOSTNAME = "default-hostname";
-    public static final String DEFAULT_NODE_NAME = "default-name";
-    public static final String DEFAULT_FAILURE_MESSAGE = "default-failure-message";
-    public static final Status DEFAULT_STATUS = Status.NORMAL;
-
-    public static final Date DEFAULT_QUEUE_DATE = Date.from(Instant.ofEpochMilli(998));
-    public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
-    public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(1005));
-    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(995));
 
     public static <T extends SBuild> T fromBuilder(Builder b, Class<T> clazz) {
         T buildMock = mock(clazz);

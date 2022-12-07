@@ -16,6 +16,7 @@ import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -193,13 +194,19 @@ public class CIEntityFactory {
         return committers.get(0).getUsername();
     }
 
+    @Nullable
     private HostInfo getHostInfo(SBuild build) {
+        if (build.getAgent().getHostName().isEmpty() && build.getAgent().getHostAddress().isEmpty()) {
+            return null;
+        }
+
         return new Job.HostInfo()
                 .withHostname(build.getAgent().getHostAddress())
                 .withName(build.getAgent().getHostName())
                 .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR));
     }
 
+    @Nullable
     private ErrorInfo getErrorInfo(SBuild build) {
         if (!build.getBuildStatus().isFailed()) {
             return null;

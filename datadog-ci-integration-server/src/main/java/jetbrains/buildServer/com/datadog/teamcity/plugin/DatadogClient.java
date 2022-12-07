@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
+import jetbrains.buildServer.serverSide.IOGuard;
 import org.springframework.http.*;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -62,7 +63,7 @@ public class DatadogClient {
         // TODO remove content and headers from logs before publishing
         while (currentAttempt <= retryInfo.maxRetries) {
             try {
-                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+                ResponseEntity<String> response = IOGuard.allowNetworkCall(() -> restTemplate.exchange(url, HttpMethod.POST, request, String.class));
                 if (response.getStatusCode().is2xxSuccessful()) {
                     LOG.info(format("Successfully sent webhook to url '%s' with body '%s' and headers '%s'", url, payload, headers));
                     return true;

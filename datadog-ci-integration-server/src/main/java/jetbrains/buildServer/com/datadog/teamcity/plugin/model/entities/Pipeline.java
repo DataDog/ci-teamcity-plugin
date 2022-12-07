@@ -76,6 +76,16 @@ public class Pipeline extends CIEntity {
         return previousAttempt;
     }
 
+    @Nonnull
+    public String pipelineId() {
+        return pipelineId;
+    }
+
+    @Nonnull
+    public PipelineStatus status() {
+        return status;
+    }
+
     public void setPreviousAttempt(@Nullable RelatedPipeline previousAttempt) {
         this.previousAttempt = previousAttempt;
     }

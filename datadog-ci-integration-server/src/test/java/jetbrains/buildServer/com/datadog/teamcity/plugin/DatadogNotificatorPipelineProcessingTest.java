@@ -10,7 +10,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildID;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
@@ -22,6 +21,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.assertEqualDates;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline.PipelineStatus.SUCCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.eq;
@@ -74,8 +74,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         assertThat(pipelineWebhook.pipelineId()).isEqualTo(String.valueOf(1));
 
         assertThat(pipelineWebhook.name()).isEqualTo(DEFAULT_NAME);
-        assertThat(pipelineWebhook.start()).isEqualTo(DEFAULT_START_DATE);
-        assertThat(pipelineWebhook.end()).isEqualTo(DEFAULT_END_DATE);
+        assertEqualDates(pipelineWebhook.start(), DEFAULT_START_DATE);
+        assertEqualDates(pipelineWebhook.end(), DEFAULT_END_DATE);
         assertThat(pipelineWebhook.url()).isEqualTo("root-url/build/1");
 
         assertThat(pipelineWebhook.isPartialRetry()).isFalse();
@@ -129,8 +129,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         GitInfo gitInfo = pipelineWebhook.gitInfo();
         assertThat(gitInfo).isNotNull();
         assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
-        assertThat(gitInfo.authorTime()).isEqualTo(DEFAULT_COMMIT_DATE);
-        assertThat(gitInfo.commitTime()).isEqualTo(DEFAULT_COMMIT_DATE);
+        assertEqualDates(gitInfo.authorTime(), DEFAULT_COMMIT_DATE);
+        assertEqualDates(gitInfo.commitTime(), DEFAULT_COMMIT_DATE);
         assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);
@@ -165,8 +165,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         GitInfo gitInfo = pipelineWebhook.gitInfo();
         assertThat(gitInfo).isNotNull();
         assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
-        assertThat(gitInfo.authorTime()).isEqualTo(DEFAULT_COMMIT_DATE);
-        assertThat(gitInfo.commitTime()).isEqualTo(DEFAULT_COMMIT_DATE);
+        assertEqualDates(gitInfo.authorTime(), DEFAULT_COMMIT_DATE);
+        assertEqualDates(gitInfo.commitTime(), DEFAULT_COMMIT_DATE);
         assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);

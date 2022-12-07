@@ -44,5 +44,13 @@ public final class TestUtils {
         }
     }
 
+    public static boolean assertEqualDates(String firstDate, String secondDate) {
+        return formatDate(firstDate).equals(formatDate(secondDate));
+    }
+
+    private static String formatDate(String date) {
+        return date.replaceAll("\\+01:00", "Z");
+    }
+
     private TestUtils() { }
 }

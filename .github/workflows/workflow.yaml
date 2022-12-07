@@ -25,4 +25,4 @@ jobs:
           distribution: 'zulu'
           cache: maven
       - name: Maven test
-        run: mvn test -X
+        run: mvn test

@@ -17,7 +17,6 @@ import jetbrains.buildServer.vcs.VcsRootInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
@@ -37,6 +36,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REPO_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_STATUS;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.parseDate;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -52,9 +52,9 @@ public class MockBuild {
         when(buildMock.getBuildStatus()).thenReturn(b.status);
         when(buildMock.getProjectId()).thenReturn(b.projectID);
         when(buildMock.isCompositeBuild()).thenReturn(b.isComposite);
-        when(buildMock.getStartDate()).thenReturn(b.startDate);
-        when(buildMock.getFinishDate()).thenReturn(b.endDate);
-        when(buildMock.getQueuedDate()).thenReturn(b.queueDate);
+        when(buildMock.getStartDate()).thenReturn(parseDate(b.startDate));
+        when(buildMock.getFinishDate()).thenReturn(parseDate(b.endDate));
+        when(buildMock.getQueuedDate()).thenReturn(parseDate(b.queueDate));
         when(buildMock.getPreviousFinished()).thenReturn(b.previousAttempt);
 
         when(buildMock.getBranch()).thenReturn(b.branchMock);
@@ -95,9 +95,9 @@ public class MockBuild {
         private String fullName = DEFAULT_NAME;
         private Status status = DEFAULT_STATUS;
         private String projectID = DEFAULT_PROJECT_ID;
-        private Date startDate = DEFAULT_START_DATE;
-        private Date endDate = DEFAULT_END_DATE;
-        private Date queueDate = DEFAULT_QUEUE_DATE;
+        private String startDate = DEFAULT_START_DATE;
+        private String endDate = DEFAULT_END_DATE;
+        private String queueDate = DEFAULT_QUEUE_DATE;
 
         private SFinishedBuild previousAttempt;
         private List<BuildDependency> dependents = new ArrayList<>();
@@ -145,17 +145,17 @@ public class MockBuild {
             return this;
         }
 
-        public Builder withStartDate(Date startDate) {
+        public Builder withStartDate(String startDate) {
             this.startDate = startDate;
             return this;
         }
 
-        public Builder withEndDate(Date endDate) {
+        public Builder withEndDate(String endDate) {
             this.endDate = endDate;
             return this;
         }
 
-        public Builder withQueueDate(Date queueDate) {
+        public Builder withQueueDate(String queueDate) {
             this.queueDate = queueDate;
             return this;
         }
@@ -218,8 +218,8 @@ public class MockBuild {
             when(changeMock.getVcsRoot()).thenReturn(vcsRootInstanceMock);
             when(changeMock.getCommitters()).thenReturn(committersMocks);
 
-            when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
-            when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getCommitDate()).thenReturn(parseDate(DEFAULT_COMMIT_DATE));
+            when(changeMock.getVcsDate()).thenReturn(parseDate(DEFAULT_COMMIT_DATE));
             when(changeMock.getDescription()).thenReturn("Description");
             when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
             when(changeMock.getUserName()).thenReturn(DEFAULT_COMMIT_USERNAME);

@@ -2,7 +2,8 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.messages.Status;
 
-import java.time.Instant;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public final class TestUtils {
@@ -30,10 +31,18 @@ public final class TestUtils {
 
     public static final int DEFAULT_QUEUE_TIME = 100;
 
-    public static final Date DEFAULT_QUEUE_DATE = Date.from(Instant.ofEpochMilli(998));
-    public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
-    public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(1005));
-    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(995));
+    public static final String DEFAULT_COMMIT_DATE = "1970-01-01T00:00:01+01:00";
+    public static final String DEFAULT_QUEUE_DATE = "1970-01-01T00:00:02+01:00";
+    public static final String DEFAULT_START_DATE = "1970-01-01T00:00:03+01:00";
+    public static final String DEFAULT_END_DATE = "1970-01-01T00:00:04+01:00";
+
+    public static Date parseDate(String date) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(date);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private TestUtils() { }
 }

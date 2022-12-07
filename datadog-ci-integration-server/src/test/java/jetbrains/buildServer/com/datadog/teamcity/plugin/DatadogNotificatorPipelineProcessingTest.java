@@ -74,8 +74,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         assertThat(pipelineWebhook.pipelineId()).isEqualTo(String.valueOf(1));
 
         assertThat(pipelineWebhook.name()).isEqualTo(DEFAULT_NAME);
-        assertThat(pipelineWebhook.start()).isEqualTo(toRFC3339(DEFAULT_START_DATE));
-        assertThat(pipelineWebhook.end()).isEqualTo(toRFC3339(DEFAULT_END_DATE));
+        assertThat(pipelineWebhook.start()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(pipelineWebhook.end()).isEqualTo(DEFAULT_END_DATE);
         assertThat(pipelineWebhook.url()).isEqualTo("root-url/build/1");
 
         assertThat(pipelineWebhook.isPartialRetry()).isFalse();
@@ -129,8 +129,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         GitInfo gitInfo = pipelineWebhook.gitInfo();
         assertThat(gitInfo).isNotNull();
         assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
-        assertThat(gitInfo.authorTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
-        assertThat(gitInfo.commitTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.authorTime()).isEqualTo(DEFAULT_COMMIT_DATE);
+        assertThat(gitInfo.commitTime()).isEqualTo(DEFAULT_COMMIT_DATE);
         assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);
@@ -165,8 +165,8 @@ public class DatadogNotificatorPipelineProcessingTest extends BaseNotificatorPro
         GitInfo gitInfo = pipelineWebhook.gitInfo();
         assertThat(gitInfo).isNotNull();
         assertThat(gitInfo.sha()).isEqualTo(DEFAULT_COMMIT_SHA);
-        assertThat(gitInfo.authorTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
-        assertThat(gitInfo.commitTime()).isEqualTo(toRFC3339(DEFAULT_COMMIT_DATE));
+        assertThat(gitInfo.authorTime()).isEqualTo(DEFAULT_COMMIT_DATE);
+        assertThat(gitInfo.commitTime()).isEqualTo(DEFAULT_COMMIT_DATE);
         assertThat(gitInfo.committerName()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.committerEmail()).isEqualTo(DEFAULT_COMMIT_USERNAME);
         assertThat(gitInfo.branch()).isEqualTo(DEFAULT_BRANCH);

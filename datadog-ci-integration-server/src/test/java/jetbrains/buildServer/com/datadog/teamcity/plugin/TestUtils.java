@@ -30,10 +30,10 @@ public final class TestUtils {
 
     public static final int DEFAULT_QUEUE_TIME = 100;
 
-    public static final Date DEFAULT_QUEUE_DATE = Date.from(Instant.ofEpochMilli(998));
-    public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(1000));
-    public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(1005));
-    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(995));
+    public static final Date DEFAULT_COMMIT_DATE = Date.from(Instant.ofEpochMilli(1000));
+    public static final Date DEFAULT_QUEUE_DATE = Date.from(Instant.ofEpochMilli(2000));
+    public static final Date DEFAULT_START_DATE = Date.from(Instant.ofEpochMilli(3000));
+    public static final Date DEFAULT_END_DATE = Date.from(Instant.ofEpochMilli(4000));
 
     private TestUtils() { }
 }

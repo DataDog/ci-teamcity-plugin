@@ -136,10 +136,6 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
-
-        System.out.println("Actual: " + removeWhitespaces(body));
-        System.out.println("Expected: " + removeWhitespaces(expectedJson));
-
         assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 

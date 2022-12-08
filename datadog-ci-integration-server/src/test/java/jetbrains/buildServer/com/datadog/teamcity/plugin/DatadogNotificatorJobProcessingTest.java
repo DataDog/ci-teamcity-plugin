@@ -60,10 +60,10 @@ public class DatadogNotificatorJobProcessingTest extends BaseNotificatorProcessi
         assertThat(jobWebhook.pipelineName()).isEqualTo(DEFAULT_PIPELINE_NAME);
 
         assertThat(jobWebhook.name()).isEqualTo(DEFAULT_NAME);
-        assertThat(jobWebhook.start()).isEqualTo(DEFAULT_START_DATE);
-        assertThat(jobWebhook.end()).isEqualTo(DEFAULT_END_DATE);
+        assertThat(jobWebhook.start()).isEqualTo(toRFC3339(DEFAULT_START_DATE));
+        assertThat(jobWebhook.end()).isEqualTo(toRFC3339(DEFAULT_END_DATE));
         assertThat(jobWebhook.url()).isEqualTo("root-url/build/1");
-        assertThat(jobWebhook.queueTimeMs()).isEqualTo(1000);
+        assertThat(jobWebhook.queueTimeMs()).isEqualTo(DEFAULT_START_DATE.getTime() - DEFAULT_QUEUE_DATE.getTime());
         assertThat(jobWebhook.dependencies()).isNull();
 
         assertThat(jobWebhook.status()).isEqualTo(SUCCESS);

@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_API_KEY_HEADER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_CI_PROVIDER_HEADER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
@@ -263,8 +264,8 @@ public class DatadogClientTest {
         return new Pipeline(
                 DEFAULT_NAME,
                 DEFAULT_BUILD_URL,
-                DEFAULT_START_DATE,
-                DEFAULT_END_DATE,
+                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_END_DATE),
                 DEFAULT_ID,
                 DEFAULT_ID,
                 false,
@@ -276,8 +277,8 @@ public class DatadogClientTest {
         Job job = new Job(
                 DEFAULT_NAME,
                 DEFAULT_BUILD_URL,
-                DEFAULT_START_DATE,
-                DEFAULT_END_DATE,
+                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_END_DATE),
                 DEFAULT_PIPELINE_ID,
                 DEFAULT_PIPELINE_NAME,
                 DEFAULT_ID,
@@ -302,8 +303,8 @@ public class DatadogClientTest {
                 .withSha(DEFAULT_COMMIT_SHA)
                 .withCommitterName(DEFAULT_COMMIT_USERNAME)
                 .withAuthorName(DEFAULT_COMMIT_USERNAME)
-                .withCommitTime(DEFAULT_COMMIT_DATE)
-                .withAuthorTime(DEFAULT_COMMIT_DATE)
+                .withCommitTime(toRFC3339(DEFAULT_COMMIT_DATE))
+                .withAuthorTime(toRFC3339(DEFAULT_COMMIT_DATE))
                 .withAuthorEmail(DEFAULT_COMMIT_EMAIL)
                 .withCommitterEmail(DEFAULT_COMMIT_EMAIL)
                 .withBranch(DEFAULT_BRANCH);

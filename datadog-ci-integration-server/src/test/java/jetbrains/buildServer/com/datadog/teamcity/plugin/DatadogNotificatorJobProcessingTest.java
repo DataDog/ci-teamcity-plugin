@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_CHECKOUT_DIR;
@@ -20,10 +21,10 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_HOSTNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_PIPELINE_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.assertEqualDates;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Job.JobStatus.SUCCESS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,8 +60,8 @@ public class DatadogNotificatorJobProcessingTest extends BaseNotificatorProcessi
         assertThat(jobWebhook.pipelineName()).isEqualTo(DEFAULT_PIPELINE_NAME);
 
         assertThat(jobWebhook.name()).isEqualTo(DEFAULT_NAME);
-        assertEqualDates(jobWebhook.start(), DEFAULT_START_DATE);
-        assertEqualDates(jobWebhook.end(), DEFAULT_END_DATE);
+        assertThat(jobWebhook.start()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(jobWebhook.end()).isEqualTo(DEFAULT_END_DATE);
         assertThat(jobWebhook.url()).isEqualTo("root-url/build/1");
         assertThat(jobWebhook.queueTimeMs()).isEqualTo(1000);
         assertThat(jobWebhook.dependencies()).isNull();

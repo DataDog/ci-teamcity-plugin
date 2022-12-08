@@ -135,6 +135,10 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
+
+        System.out.println("Actual: " + formatJson(body));
+        System.out.println("Expected: " + formatJson(expectedJson));
+
         assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
     }
 

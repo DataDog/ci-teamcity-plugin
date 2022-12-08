@@ -108,7 +108,7 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
-        assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 
     @Test
@@ -137,10 +137,10 @@ public class DatadogClientTest {
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
 
-        System.out.println("Actual: " + formatJson(body));
-        System.out.println("Expected: " + formatJson(expectedJson));
+        System.out.println("Actual: " + removeWhitespaces(body));
+        System.out.println("Expected: " + removeWhitespaces(expectedJson));
 
-        assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 
     @Test
@@ -168,7 +168,7 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
-        assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 
     @Test
@@ -230,7 +230,7 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("complete-pipeline.json");
         String body = requestCaptor.getValue().getBody();
-        assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 
     @Test
@@ -257,7 +257,7 @@ public class DatadogClientTest {
 
         String expectedJson = loadJson("complete-job.json");
         String body = requestCaptor.getValue().getBody();
-        assertThat(formatJson(body)).isEqualTo(formatJson(expectedJson));
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
     }
 
     private static Pipeline defaultPipeline() {
@@ -319,7 +319,7 @@ public class DatadogClientTest {
         }
     }
 
-    private static String formatJson(String input) {
-        return input.replaceAll("\\s", "").replaceAll("\\+01:00", "Z");
+    private static String removeWhitespaces(String input) {
+        return input.replaceAll("\\s", "");
     }
 }

@@ -102,6 +102,16 @@ public class Job extends CIEntity {
         return this;
     }
 
+    @Nonnull
+    public String pipelineName() {
+        return pipelineName;
+    }
+
+    @Nonnull
+    public JobStatus status() {
+        return status;
+    }
+
     @Override
     public String toString() {
         return "Job{" +

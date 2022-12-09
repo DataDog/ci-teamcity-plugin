@@ -1,0 +1,35 @@
+{
+  "level": "job",
+  "name": "Full Name",
+  "url": "localhost/build/1",
+  "start": "1970-01-01T00:00:03Z",
+  "end": "1970-01-01T00:00:04Z",
+  "git": {
+    "repository_url": "repository-url.com",
+    "sha": "sha",
+    "message": "git message",
+    "commit_time": "1970-01-01T00:00:01Z",
+    "author_time": "1970-01-01T00:00:01Z",
+    "committer_name": "username",
+    "committer_email": "defaultemail@email.com",
+    "author_name": "username",
+    "author_email": "defaultemail@email.com",
+    "default_branch": "main",
+    "branch": "main"
+  },
+  "pipeline_unique_id": "2",
+  "pipeline_name": "Pipeline Name",
+  "id": "1",
+  "status": "success",
+  "queue_time": 100,
+  "node": {
+    "hostname": "default-hostname",
+    "name": "default-name",
+    "workspace": "default-checkout-dir"
+  },
+  "error": {
+    "message": "default-failure-message",
+    "type": "Failed Tests",
+    "domain": "provider"
+  }
+}

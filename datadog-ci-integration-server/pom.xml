@@ -66,6 +66,10 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.21.0</version>
+        <configuration>
+         <!-- Needed in order to have consistent results between local and remote tests -->
+          <argLine>-Duser.timezone=UTC</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>

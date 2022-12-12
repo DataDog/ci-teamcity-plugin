@@ -1,6 +1,5 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
-import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
 
 import java.text.SimpleDateFormat;
@@ -13,22 +12,32 @@ public final class BuildUtils {
 
     private static final SimpleDateFormat RFC_3339 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
 
+    // We add some offset when considering the start of the pipeline, as TeamCity might start
+    // the first job slightly before the pipeline
+    private static final int PIPELINE_START_OFFSET_MS = 3000;
+
     private BuildUtils() { }
 
-    public static boolean isPipelineBuild(SBuild build) {
-        return isPipelineBuild(build.getBuildPromotion());
+    public static boolean isPartialRetry(SBuild pipelineBuild) {
+        boolean isAutomaticRetry = pipelineBuild.getTriggeredBy()
+                .getParameters()
+                .getOrDefault("type", "").equals("retry");
+
+        // We check if any of the jobs were started before the composite build (accounting for the offset)
+        Date pipelineStartWithOffset = pipelineStartWithOffset(pipelineBuild);
+        boolean isReusingBuilds = pipelineBuild.getBuildPromotion().getAllDependencies().stream()
+                .filter(build -> build.getAssociatedBuild() != null)
+                .anyMatch(build -> build.getAssociatedBuild().getStartDate().before(pipelineStartWithOffset));
+
+        return isAutomaticRetry || isReusingBuilds;
     }
 
-    public static boolean isPipelineBuild(BuildPromotion build) {
-        return build.isCompositeBuild() && build.getNumberOfDependedOnMe() == 0;
-    }
+    public static Date pipelineStartWithOffset(SBuild pipelineBuild) {
+        if (pipelineBuild.getStartDate().getTime() <= PIPELINE_START_OFFSET_MS) {
+            return new Date(0);
+        }
 
-    public static boolean isJobBuild(SBuild build) {
-        return !build.isCompositeBuild();
-    }
-
-    public static boolean isPartialRetry(SBuild build) {
-        return build.getTriggeredBy().getParameters().getOrDefault("type", "").equals("retry");
+        return new Date(pipelineBuild.getStartDate().getTime() - PIPELINE_START_OFFSET_MS);
     }
 
     public static String buildID(SBuild build) {
@@ -39,12 +48,8 @@ public final class BuildUtils {
         return !build.getContainingChanges().isEmpty();
     }
 
-    /**
-     * We ignore a composite build if it's not the last in the chain. This is because we don't want to report them on
-     * the trace as they are not run in agents or have any steps (their only purpose is to aggregate previous results).
-     */
-    public static boolean shouldBeIgnored(SBuild build) {
-        return build.isCompositeBuild() && build.getBuildPromotion().getNumberOfDependedOnMe() > 0;
+    public static String buildName(SBuild build) {
+        return build.getFullName();
     }
 
     public static long queueTimeMs(SBuild build) {
@@ -54,7 +59,7 @@ public final class BuildUtils {
     public static List<String> dependenciesIds(SBuild build) {
         return build.getBuildPromotion().getDependencies().stream()
                 .filter(dep -> dep.getDependOn().getAssociatedBuild() != null)
-                .map(dep -> String.valueOf(dep.getDependOn().getAssociatedBuildId()))
+                .map(dep -> buildID(dep.getDependOn().getAssociatedBuild()))
                 .collect(toList());
     }
 

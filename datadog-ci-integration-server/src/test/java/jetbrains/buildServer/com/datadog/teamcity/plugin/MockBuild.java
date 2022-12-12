@@ -6,6 +6,7 @@ import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.parameters.ParametersProvider;
 import jetbrains.buildServer.serverSide.Branch;
 import jetbrains.buildServer.serverSide.BuildPromotion;
+import jetbrains.buildServer.serverSide.BuildPromotionOwner;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildAgent;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
@@ -21,7 +22,7 @@ import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.CIEntityFactory.CHECKOUT_DIR;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_CHECKOUT_DIR;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
@@ -41,12 +42,13 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-//TODO I don't see any way to instantiate 'dummy' TC builds for testing purposes,
-// so for now I'm creating this class able to construct mocked builds
+// Currently there is no way to create TeamCity builds for testing purposes. Therefore, this class can be used
+// to create a mock build, returning default parameters unless overridden during creation.
 public class MockBuild {
 
-    public static <T extends SBuild> T fromBuilder(Builder b, Class<T> clazz) {
-        T buildMock = mock(clazz);
+    public static SBuild fromBuilder(Builder b) {
+        // Build information mocks
+        SBuild buildMock = mock(SBuild.class);
         when(buildMock.getBuildId()).thenReturn(b.id);
         when(buildMock.getFullName()).thenReturn(b.fullName);
         when(buildMock.getBuildStatus()).thenReturn(b.status);
@@ -55,58 +57,53 @@ public class MockBuild {
         when(buildMock.getStartDate()).thenReturn(b.startDate);
         when(buildMock.getFinishDate()).thenReturn(b.endDate);
         when(buildMock.getQueuedDate()).thenReturn(b.queueDate);
-        when(buildMock.getPreviousFinished()).thenReturn(b.previousAttempt);
-
+        when(buildMock.isPersonal()).thenReturn(b.isPersonal);
         when(buildMock.getBranch()).thenReturn(b.branchMock);
         when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
         when(buildMock.getFailureReasons()).thenReturn(b.failureReasons);
         when(buildMock.isInternalError()).thenReturn(true);
+        when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
+        when(buildMock.getAgent()).thenReturn(b.agentMock);
 
-        ParametersProvider parametersProviderMock = mock(ParametersProvider.class);
-        when(parametersProviderMock.get(CHECKOUT_DIR)).thenReturn(DEFAULT_CHECKOUT_DIR);
-        when(buildMock.getParametersProvider()).thenReturn(parametersProviderMock);
-
+        // Build promotion mocks
         BuildPromotion buildPromotionMock = mock(BuildPromotion.class);
         when(buildPromotionMock.getNumberOfDependedOnMe()).thenReturn(b.dependentsNum);
         when(buildPromotionMock.isCompositeBuild()).thenReturn(b.isComposite);
         when(buildPromotionMock.getAssociatedBuild()).thenReturn(buildMock);
         when(buildPromotionMock.getAssociatedBuildId()).thenReturn(b.id);
-        doReturn(b.dependents).when(buildPromotionMock).getDependedOnMe();
         doReturn(b.dependencies).when(buildPromotionMock).getDependencies();
+        doReturn(b.allDependencies).when(buildPromotionMock).getAllDependencies();
         when(buildMock.getBuildPromotion()).thenReturn(buildPromotionMock);
 
-        when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
-        when(buildMock.getAgent()).thenReturn(b.agentMock);
+        // Build parameters mocks
+        ParametersProvider parametersProviderMock = mock(ParametersProvider.class);
+        when(parametersProviderMock.get(CHECKOUT_DIR)).thenReturn(DEFAULT_CHECKOUT_DIR);
+        when(buildMock.getParametersProvider()).thenReturn(parametersProviderMock);
 
         return buildMock;
     }
 
-    public static SBuild fromBuilder(Builder b) {
-        return fromBuilder(b, SBuild.class);
-    }
-
     public static class Builder {
+        // Build customizable info
         private final long id;
-        private final TriggeredBy triggeredBy = mock(TriggeredBy.class);
-
         private boolean isComposite;
-
-        private int dependentsNum;
+        private boolean isPersonal;
         private String fullName = DEFAULT_NAME;
         private Status status = DEFAULT_STATUS;
         private String projectID = DEFAULT_PROJECT_ID;
         private Date startDate = DEFAULT_START_DATE;
         private Date endDate = DEFAULT_END_DATE;
         private Date queueDate = DEFAULT_QUEUE_DATE;
-
-        private SFinishedBuild previousAttempt;
-        private List<BuildDependency> dependents = new ArrayList<>();
-        private List<BuildDependency> dependencies = new ArrayList<>();
-
-        List<SVcsModification> changesListMock = new ArrayList<>();
         private Branch branchMock;
+        private final List<SVcsModification> changesListMock = new ArrayList<>();
+        private final List<BuildProblemData> failureReasons = new ArrayList<>();
+        private final TriggeredBy triggeredBy = mock(TriggeredBy.class);
         private SBuildAgent agentMock;
-        private List<BuildProblemData> failureReasons = new ArrayList<>();
+
+        // Build Promotion customizable info
+        private int dependentsNum;
+        private List<BuildDependency> dependencies = new ArrayList<>();
+        private List<BuildPromotion> allDependencies = new ArrayList<>();
 
         public Builder(long id, MockBuild.BuildType buildType) {
             this.id = id;
@@ -120,12 +117,17 @@ public class MockBuild {
             }
         }
 
-        public Builder isTriggeredByUser() {
-            when(triggeredBy.isTriggeredByUser()).thenReturn(true);
+        public Builder isPersonal() {
+            this.isPersonal = true;
             return this;
         }
 
-        public Builder isTriggeredByReply() {
+        public Builder isComposite() {
+            this.isComposite = true;
+            return this;
+        }
+
+        public Builder isTriggeredByRetry() {
             when(triggeredBy.getParameters()).thenReturn(Collections.singletonMap("type", "retry"));
             return this;
         }
@@ -165,11 +167,7 @@ public class MockBuild {
             when(failureMock.getDescription()).thenReturn(DEFAULT_FAILURE_MESSAGE);
             when(failureMock.getType()).thenReturn(type);
             this.failureReasons.add(failureMock);
-            return this;
-        }
-
-        public Builder withPreviousAttempt(SFinishedBuild previousAttempt) {
-            this.previousAttempt = previousAttempt;
+            this.status = Status.FAILURE;
             return this;
         }
 
@@ -178,25 +176,21 @@ public class MockBuild {
             return this;
         }
 
-        public Builder withDependents(List<SBuild> dependents) {
-            this.dependents = dependents.stream().map(build -> {
-                        BuildDependency dependencyMock = mock(BuildDependency.class);
-                        BuildPromotion buildPromotion = build.getBuildPromotion();
-                        when(dependencyMock.getDependent()).thenReturn(buildPromotion);
-                        return dependencyMock;
-                    })
+        public Builder withAllDependencies(List<SBuild> dependencies) {
+            this.allDependencies = dependencies.stream()
+                    .map(BuildPromotionOwner::getBuildPromotion)
                     .collect(toList());
             return this;
         }
 
         public Builder withDependencies(List<SBuild> dependencies) {
             this.dependencies = dependencies.stream().map(build -> {
-                        BuildDependency dependencyMock = mock(BuildDependency.class);
-                        BuildPromotion buildPromotion = build.getBuildPromotion();
-                        when(dependencyMock.getDependOn()).thenReturn(buildPromotion);
-                        return dependencyMock;
-                    })
-                    .collect(toList());
+                    BuildDependency dependencyMock = mock(BuildDependency.class);
+                    BuildPromotion buildPromotion = build.getBuildPromotion();
+                    when(dependencyMock.getDependOn()).thenReturn(buildPromotion);
+                    return dependencyMock;
+                })
+                .collect(toList());
             return this;
         }
 
@@ -236,10 +230,6 @@ public class MockBuild {
 
         public SBuild build() {
             return fromBuilder(this);
-        }
-
-        public SFinishedBuild buildFinished() {
-            return fromBuilder(this, SFinishedBuild.class);
         }
     }
 

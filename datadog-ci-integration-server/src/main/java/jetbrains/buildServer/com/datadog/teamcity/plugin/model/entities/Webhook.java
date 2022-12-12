@@ -1,15 +1,12 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
-/**
- * This class represents the abstraction for CI objects (pipelines, jobs).
- */
-public class CIEntity {
+public class Webhook {
 
     @JsonProperty("level")
     @Nonnull
@@ -35,7 +32,7 @@ public class CIEntity {
     @Nullable
     protected GitInfo gitInfo;
 
-    protected CIEntity(@Nonnull CILevel level, @Nonnull String name, @Nonnull String url, @Nonnull String start, @Nonnull String end) {
+    protected Webhook(@Nonnull CILevel level, @Nonnull String name, @Nonnull String url, @Nonnull String start, @Nonnull String end) {
         this.level = level;
         this.name = name;
         this.url = url;
@@ -43,27 +40,7 @@ public class CIEntity {
         this.end = end;
     }
 
-    @Nonnull
-    public String name() {
-        return name;
-    }
-
-    @Nonnull
-    public String url() {
-        return url;
-    }
-
-    @Nonnull
-    public String start() {
-        return start;
-    }
-
-    @Nonnull
-    public String end() {
-        return end;
-    }
-
-    public CIEntity withGitInfo(@Nullable GitInfo gitInfo) {
+    public Webhook withGitInfo(@Nullable GitInfo gitInfo) {
         this.gitInfo = gitInfo;
         return this;
     }
@@ -71,6 +48,19 @@ public class CIEntity {
     @Nullable
     public GitInfo gitInfo() {
         return gitInfo;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Webhook webhook = (Webhook) o;
+        return level == webhook.level && name.equals(webhook.name) && url.equals(webhook.url) && start.equals(webhook.start) && end.equals(webhook.end) && Objects.equals(gitInfo, webhook.gitInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(level, name, url, start, end, gitInfo);
     }
 
     public enum CILevel {

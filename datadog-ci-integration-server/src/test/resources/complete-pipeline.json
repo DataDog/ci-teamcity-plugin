@@ -20,9 +20,5 @@
   "unique_id": "1",
   "pipeline_id": "1",
   "partial_retry": false,
-  "status": "success",
-  "previous_attempt": {
-    "id": "1",
-    "url": "localhost/build/1"
-  }
+  "status": "success"
 }

@@ -3,12 +3,16 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity;
-import jetbrains.buildServer.serverSide.IOGuard;
-import org.springframework.http.*;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -32,12 +36,18 @@ public class DatadogClient {
         this.retryInfo = retryInfo;
     }
 
-    public boolean sendWebhook(CIEntity entity, String apiKey, String ddSite) {
+    public boolean sendWebhooks(List<Webhook> webhooks, String apiKey, String ddSite) {
         String url = format("https://webhook-intake.%s/api/v2/webhook", ddSite);
         HttpHeaders headers = getHeaders(apiKey);
-        String payload = serialize(entity);
 
-        return sendWebhookWithRetries(url, payload, headers);
+        // TODO this will be changed by async sending
+        boolean successful = true;
+        for (Webhook webhook : webhooks) {
+            String webhookPayload = serialize(webhook);
+            successful &= sendWebhookWithRetries(url, webhookPayload, headers);
+        }
+
+        return successful;
     }
 
     private HttpHeaders getHeaders(String apiKey) {
@@ -48,7 +58,7 @@ public class DatadogClient {
         return headers;
     }
 
-    private String serialize(CIEntity entity) {
+    private String serialize(Webhook entity) {
         try {
             return objectMapper.writeValueAsString(entity);
         } catch (JsonProcessingException e) {
@@ -63,7 +73,7 @@ public class DatadogClient {
         // TODO remove content and headers from logs before publishing
         while (currentAttempt <= retryInfo.maxRetries) {
             try {
-                ResponseEntity<String> response = IOGuard.allowNetworkCall(() -> restTemplate.exchange(url, HttpMethod.POST, request, String.class));
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
                 if (response.getStatusCode().is2xxSuccessful()) {
                     LOG.info(format("Successfully sent webhook to url '%s' with body '%s' and headers '%s'", url, payload, headers));
                     return true;

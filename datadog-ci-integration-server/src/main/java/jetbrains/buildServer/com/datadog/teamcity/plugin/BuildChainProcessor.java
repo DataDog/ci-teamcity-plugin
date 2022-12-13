@@ -13,12 +13,12 @@ import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -29,8 +29,8 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.build
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.dependenciesIds;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.pipelineStartWithOffset;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.USER;
@@ -46,7 +46,7 @@ public class BuildChainProcessor {
         put(SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE, "Snapshot Dependencies Failed");
     }};
 
-    protected static final String CHECKOUT_DIR = "system.teamcity.build.checkoutDir";
+    protected static final String CHECKOUT_DIR_PROPERTY = "system.teamcity.build.checkoutDir";
 
     private final SBuildServer buildServer;
     private final DatadogClient datadogClient;
@@ -98,18 +98,19 @@ public class BuildChainProcessor {
         Date pipelineStartWithOffset = pipelineStartWithOffset(pipelineBuild);
 
         return pipelineBuild.getBuildPromotion().getAllDependencies().stream()
-                .map(BuildPromotion::getAssociatedBuild)
-                .filter(build -> !shouldBeIgnored(build, pipelineStartWithOffset))
-                .map(job -> createJobWebhook(job, pipelineName, pipelineID))
-                .collect(toList());
+            .map(BuildPromotion::getAssociatedBuild)
+            .filter(Objects::nonNull)
+            .filter(build -> !shouldBeIgnored(build, pipelineStartWithOffset))
+            .map(job -> createJobWebhook(job, pipelineName, pipelineID))
+            .collect(toList());
     }
 
-    private boolean shouldBeIgnored(@Nullable SBuild jobBuild, Date pipelineStart) {
-        return jobBuild == null ||
-                jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
-                jobBuild.isPersonal() ||
-                // We ignore jobs started before the pipeline, as they should be reused builds from previous pipelines
-                jobBuild.getStartDate().before(pipelineStart);
+    private boolean shouldBeIgnored(SBuild jobBuild, Date pipelineStart) {
+        return jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
+            jobBuild.isPersonal() ||
+            // For partial retries, we ignore jobs started before the pipeline,
+            // as they are reused builds which were already sent by previous webhooks
+            jobBuild.getStartDate().before(pipelineStart);
     }
 
     private JobWebhook createJobWebhook(SBuild jobBuild, String pipelineName, String pipelineID) {
@@ -141,7 +142,7 @@ public class BuildChainProcessor {
         return Optional.of(new HostInfo()
                 .withHostname(build.getAgent().getHostAddress())
                 .withName(build.getAgent().getHostName())
-                .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR)));
+                .withWorkspace(build.getParametersProvider().get(CHECKOUT_DIR_PROPERTY)));
     }
 
     private Optional<ErrorInfo> getErrorInfo(SBuild build) {

@@ -9,7 +9,6 @@ import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.BuildPromotionOwner;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildAgent;
-import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.TriggeredBy;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
 import jetbrains.buildServer.users.SUser;
@@ -22,7 +21,7 @@ import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR_PROPERTY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_CHECKOUT_DIR;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
@@ -77,7 +76,7 @@ public class MockBuild {
 
         // Build parameters mocks
         ParametersProvider parametersProviderMock = mock(ParametersProvider.class);
-        when(parametersProviderMock.get(CHECKOUT_DIR)).thenReturn(DEFAULT_CHECKOUT_DIR);
+        when(parametersProviderMock.get(CHECKOUT_DIR_PROPERTY)).thenReturn(DEFAULT_CHECKOUT_DIR);
         when(buildMock.getParametersProvider()).thenReturn(parametersProviderMock);
 
         return buildMock;

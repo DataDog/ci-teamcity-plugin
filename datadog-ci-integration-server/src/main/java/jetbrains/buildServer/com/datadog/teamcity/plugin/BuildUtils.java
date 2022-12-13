@@ -12,8 +12,9 @@ public final class BuildUtils {
 
     private static final SimpleDateFormat RFC_3339 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
 
-    // We add some offset when considering the start of the pipeline, as TeamCity might start
-    // the first job slightly before the pipeline
+    // In TeamCity, the last composite build of the chain might start slightly after the first build of the chain.
+    // This is a temporary hack to include an offset of some seconds to not incorrectly
+    // filter out the first build of the chain if it started slightly before the last composite build.
     private static final int PIPELINE_START_OFFSET_MS = 3000;
 
     private BuildUtils() { }

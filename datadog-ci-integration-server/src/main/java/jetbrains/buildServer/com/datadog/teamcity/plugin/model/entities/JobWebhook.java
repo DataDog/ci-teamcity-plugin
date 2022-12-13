@@ -6,10 +6,11 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.CIEntity.CILevel.JOB;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook.CILevel.JOB;
 
-public class Job extends CIEntity {
+public class JobWebhook extends Webhook {
 
     @JsonProperty("pipeline_unique_id")
     @Nonnull
@@ -42,15 +43,15 @@ public class Job extends CIEntity {
     @Nullable
     protected ErrorInfo errorInfo;
 
-    public Job(@Nonnull String name,
-               @Nonnull String url,
-               @Nonnull String start,
-               @Nonnull String end,
-               @Nonnull String pipelineID,
-               @Nonnull String pipelineName,
-               @Nonnull String id,
-               @Nonnull JobStatus status,
-               long queueTimeMs) {
+    public JobWebhook(@Nonnull String name,
+                      @Nonnull String url,
+                      @Nonnull String start,
+                      @Nonnull String end,
+                      @Nonnull String pipelineID,
+                      @Nonnull String pipelineName,
+                      @Nonnull String id,
+                      @Nonnull JobStatus status,
+                      long queueTimeMs) {
         super(JOB, name, url, start, end);
         this.pipelineID = pipelineID;
         this.pipelineName = pipelineName;
@@ -59,52 +60,16 @@ public class Job extends CIEntity {
         this.queueTimeMs = queueTimeMs;
     }
 
-    @Nonnull
-    public String pipelineID() {
-        return pipelineID;
-    }
-
-    @Nonnull
-    public String id() {
-        return id;
-    }
-
-    public long queueTimeMs() {
-        return queueTimeMs;
-    }
-
-    @Nullable
-    public List<String> dependencies() {
-        return dependenciesIds;
-    }
-
     public void setDependenciesIds(@Nullable List<String> dependenciesIds) {
         this.dependenciesIds = dependenciesIds;
     }
 
-    @Nullable
-    public HostInfo hostInfo() {
-        return hostInfo;
-    }
-
-    public Job withHostInfo(@Nullable HostInfo hostInfo) {
-        this.hostInfo = hostInfo;
-        return this;
-    }
-
-    @Nullable
-    public ErrorInfo errorInfo() {
-        return errorInfo;
-    }
-
-    public Job withErrorInfo(@Nullable ErrorInfo errorInfo) {
+    public void setErrorInfo(@Nonnull ErrorInfo errorInfo) {
         this.errorInfo = errorInfo;
-        return this;
     }
 
-    @Nonnull
-    public String pipelineName() {
-        return pipelineName;
+    public void setHostInfo(@Nonnull HostInfo hostInfo) {
+        this.hostInfo = hostInfo;
     }
 
     @Nonnull
@@ -113,18 +78,37 @@ public class Job extends CIEntity {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        JobWebhook that = (JobWebhook) o;
+        return queueTimeMs == that.queueTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependenciesIds, hostInfo, errorInfo);
+    }
+
+    @Override
     public String toString() {
-        return "Job{" +
-                "pipelineID='" + pipelineID + '\'' +
-                ", pipelineName='" + pipelineName + '\'' +
-                ", id='" + id + '\'' +
-                ", status=" + status +
-                ", level=" + level +
-                ", name='" + name + '\'' +
-                ", url='" + url + '\'' +
-                ", start='" + start + '\'' +
-                ", end='" + end + '\'' +
-                "} " + super.toString();
+        return "JobWebhook{" +
+            "pipelineID='" + pipelineID + '\'' +
+            ", pipelineName='" + pipelineName + '\'' +
+            ", id='" + id + '\'' +
+            ", status=" + status +
+            ", queueTimeMs=" + queueTimeMs +
+            ", dependenciesIds=" + dependenciesIds +
+            ", hostInfo=" + hostInfo +
+            ", errorInfo=" + errorInfo +
+            ", level=" + level +
+            ", name='" + name + '\'' +
+            ", url='" + url + '\'' +
+            ", start='" + start + '\'' +
+            ", end='" + end + '\'' +
+            ", gitInfo=" + gitInfo +
+            "} " + super.toString();
     }
 
     public enum JobStatus {
@@ -141,9 +125,6 @@ public class Job extends CIEntity {
         @JsonProperty("name") private String name;
         @JsonProperty("workspace") private String workspace;
 
-        public String hostname() {
-            return hostname;
-        }
 
         public HostInfo withHostname(String hostname) {
             this.hostname = hostname;
@@ -159,10 +140,6 @@ public class Job extends CIEntity {
             return this;
         }
 
-        public String workspace() {
-            return workspace;
-        }
-
         public HostInfo withWorkspace(String workspace) {
             this.workspace = workspace;
             return this;
@@ -175,6 +152,19 @@ public class Job extends CIEntity {
                     ", name='" + name + '\'' +
                     ", workspace='" + workspace + '\'' +
                     '}';
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            HostInfo hostInfo = (HostInfo) o;
+            return Objects.equals(hostname, hostInfo.hostname) && Objects.equals(name, hostInfo.name) && Objects.equals(workspace, hostInfo.workspace);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(hostname, name, workspace);
         }
     }
 
@@ -189,24 +179,25 @@ public class Job extends CIEntity {
             this.domain = domain;
         }
 
-        public String message() {
-            return message;
-        }
-
-        public String type() {
-            return type;
-        }
-
-        public ErrorDomain domain() {
-            return domain;
-        }
-
         @Override
         public String toString() {
             return "ErrorInfo{" +
                     "message='" + message + '\'' +
                     ", type='" + type + '\'' +
                     '}';
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ErrorInfo errorInfo = (ErrorInfo) o;
+            return Objects.equals(message, errorInfo.message) && Objects.equals(type, errorInfo.type) && domain == errorInfo.domain;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(message, type, domain);
         }
 
         public enum ErrorDomain {

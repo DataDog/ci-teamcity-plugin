@@ -1,6 +1,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.serverSide.ProjectManager;
+import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +12,8 @@ import static java.lang.String.format;
 @Component
 public class ProjectHandler {
 
-    protected static final String DATADOG_API_KEY_PARAM = "datadog.api.key";
-    protected static final String DATADOG_SITE_PARAM = "datadog.site";
+    protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
+    protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
 
     private final ProjectManager projectManager;
 
@@ -20,8 +21,8 @@ public class ProjectHandler {
         this.projectManager = projectManager;
     }
 
-    public ProjectParameters getProjectParameters(Optional<String> projectID) {
-        ProjectEx project = (ProjectEx) projectID
+    public ProjectParameters getProjectParameters(SBuild build) {
+        ProjectEx project = (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
 

@@ -21,7 +21,7 @@
   "pipeline_name": "Pipeline Name",
   "id": "1",
   "status": "success",
-  "queue_time": 100,
+  "queue_time": 1000,
   "node": {
     "hostname": "default-hostname",
     "name": "default-name",
@@ -29,7 +29,7 @@
   },
   "error": {
     "message": "default-failure-message",
-    "type": "Failed Tests",
+    "type": "Tests Failed",
     "domain": "provider"
   }
 }

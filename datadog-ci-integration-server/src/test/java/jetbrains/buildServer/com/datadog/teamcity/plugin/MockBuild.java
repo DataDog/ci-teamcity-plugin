@@ -1,19 +1,19 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
-import com.google.common.collect.ImmutableMap;
 import jetbrains.buildServer.BuildProblemData;
 import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.parameters.ParametersProvider;
 import jetbrains.buildServer.serverSide.Branch;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.BuildPromotionOwner;
+import jetbrains.buildServer.serverSide.BuildRevision;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildAgent;
 import jetbrains.buildServer.serverSide.TriggeredBy;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
 import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
-import jetbrains.buildServer.vcs.VcsRootInstance;
+import jetbrains.buildServer.vcs.VcsRootInstanceEx;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,19 +22,23 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR_PROPERTY;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.BRANCH_PROPERTY;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.URL_PROPERTY;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.USERNAME_STYLE_PROPERTY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_CHECKOUT_DIR;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_SHA;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_USERNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_FAILURE_MESSAGE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_GIT_MESSAGE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_HOSTNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NODE_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_PROJECT_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REPO_URL;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REVISION;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_STATUS;
 import static org.mockito.Mockito.doReturn;
@@ -60,6 +64,7 @@ public class MockBuild {
         when(buildMock.getBranch()).thenReturn(b.branchMock);
         when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
         when(buildMock.getFailureReasons()).thenReturn(b.failureReasons);
+        when(buildMock.getRevisions()).thenReturn(b.revisions);
         when(buildMock.isInternalError()).thenReturn(true);
         when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
         when(buildMock.getAgent()).thenReturn(b.agentMock);
@@ -96,6 +101,7 @@ public class MockBuild {
         private Branch branchMock;
         private final List<SVcsModification> changesListMock = new ArrayList<>();
         private final List<BuildProblemData> failureReasons = new ArrayList<>();
+        private final List<BuildRevision> revisions = new ArrayList<>();
         private final TriggeredBy triggeredBy = mock(TriggeredBy.class);
         private SBuildAgent agentMock;
 
@@ -193,31 +199,40 @@ public class MockBuild {
             return this;
         }
 
-        public Builder addGitInformation() {
-            VcsRootInstance vcsRootInstanceMock = mock(VcsRootInstance.class);
-            when(vcsRootInstanceMock.getProperties())
-                    .thenReturn(ImmutableMap.of("url", DEFAULT_REPO_URL));
-            when(vcsRootInstanceMock.getProperty("branch")).thenReturn(DEFAULT_BRANCH);
+        public Builder addRevision(String vcsName,
+                                   String usernameStyle,
+                                   String changeUsername,
+                                   List<String> committersUsername) {
+            List<SUser> committerMocks = committersUsername.stream().map(username -> {
+                SUser userMock = mock(SUser.class);
+                when(userMock.getUsername()).thenReturn(username);
+                return userMock;
+            })
+            .collect(toList());
+
+            SVcsModification changeMock = mock(SVcsModification.class);
+            when(changeMock.getDescription()).thenReturn(DEFAULT_GIT_MESSAGE);
+            when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
+            when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
+            when(changeMock.getUserName()).thenReturn(changeUsername);
+            when(changeMock.getCommitters()).thenReturn(committerMocks);
+
+            VcsRootInstanceEx vcsRootMock = mock(VcsRootInstanceEx.class);
+            when(vcsRootMock.getVcsName()).thenReturn(vcsName);
+            when(vcsRootMock.findModificationByVersion(DEFAULT_REVISION)).thenReturn(changeMock);
+            when(vcsRootMock.getProperty(URL_PROPERTY)).thenReturn(DEFAULT_REPO_URL);
+            when(vcsRootMock.getProperty(BRANCH_PROPERTY)).thenReturn(DEFAULT_BRANCH);
+            when(vcsRootMock.getProperty(USERNAME_STYLE_PROPERTY)).thenReturn(usernameStyle);
+
+            BuildRevision revisionMock = mock(BuildRevision.class);
+            when(revisionMock.getRoot()).thenReturn(vcsRootMock);
+            when(revisionMock.getRevision()).thenReturn(DEFAULT_REVISION);
 
             branchMock = mock(Branch.class);
             when(branchMock.getDisplayName()).thenReturn(DEFAULT_BRANCH);
 
-            ArrayList<SUser> committersMocks = new ArrayList<>();
-            SUser userMock = mock(SUser.class);
-            when(userMock.getUsername()).thenReturn(DEFAULT_COMMIT_USERNAME);
-            committersMocks.add(userMock);
-
-            SVcsModification changeMock = mock(SVcsModification.class);
-            when(changeMock.getVcsRoot()).thenReturn(vcsRootInstanceMock);
-            when(changeMock.getCommitters()).thenReturn(committersMocks);
-
-            when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
-            when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
-            when(changeMock.getDescription()).thenReturn("Description");
-            when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
-            when(changeMock.getUserName()).thenReturn(DEFAULT_COMMIT_USERNAME);
-
-            changesListMock.add(changeMock);
+            revisions.add(revisionMock);
             return this;
         }
 

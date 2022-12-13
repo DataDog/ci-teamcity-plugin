@@ -2,6 +2,8 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 public class GitInfo {
 
     @JsonProperty("repository_url") private String repositoryURL;
@@ -72,43 +74,6 @@ public class GitInfo {
         return this;
     }
 
-    public GitInfo withTag(String tag) {
-        this.tag = tag;
-        return this;
-    }
-
-    public String repositoryURL() {
-        return repositoryURL;
-    }
-
-    public String sha() {
-        return sha;
-    }
-
-    public String commitTime() {
-        return commitTime;
-    }
-
-    public String authorTime() {
-        return authorTime;
-    }
-
-    public String committerName() {
-        return committerName;
-    }
-
-    public String committerEmail() {
-        return committerEmail;
-    }
-
-    public String defaultBranch() {
-        return defaultBranch;
-    }
-
-    public String branch() {
-        return branch;
-    }
-
     @Override
     public String toString() {
         return "GitInfo{" +
@@ -125,5 +90,18 @@ public class GitInfo {
                 ", branch='" + branch + '\'' +
                 ", tag='" + tag + '\'' +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        GitInfo gitInfo = (GitInfo) o;
+        return Objects.equals(repositoryURL, gitInfo.repositoryURL) && Objects.equals(sha, gitInfo.sha) && Objects.equals(message, gitInfo.message) && Objects.equals(commitTime, gitInfo.commitTime) && Objects.equals(authorTime, gitInfo.authorTime) && Objects.equals(committerName, gitInfo.committerName) && Objects.equals(committerEmail, gitInfo.committerEmail) && Objects.equals(authorName, gitInfo.authorName) && Objects.equals(authorEmail, gitInfo.authorEmail) && Objects.equals(defaultBranch, gitInfo.defaultBranch) && Objects.equals(branch, gitInfo.branch) && Objects.equals(tag, gitInfo.tag);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(repositoryURL, sha, message, commitTime, authorTime, committerName, committerEmail, authorName, authorEmail, defaultBranch, branch, tag);
     }
 }

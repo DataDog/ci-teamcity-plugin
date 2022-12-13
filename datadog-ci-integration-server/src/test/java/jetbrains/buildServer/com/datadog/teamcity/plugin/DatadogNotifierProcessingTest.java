@@ -21,6 +21,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
@@ -37,6 +38,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PAR
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultErrorInfo;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultUrl;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,16 +65,19 @@ public class DatadogNotifierProcessingTest {
     private BuildsManager buildsManagerMock;
     @Mock
     private NotificatorRegistry notificatorRegistryMock;
+    @Mock
+    private GitInformationExtractor gitInfoExtractorMock;
 
     private DatadogNotifier datadogNotifier;
 
     @Before
     public void setUp() {
         when(buildServerMock.getRootUrl()).thenReturn(LOCALHOST);
+        when(gitInfoExtractorMock.extractGitInfo(any())).thenReturn(Optional.empty());
         when(projectHandlerMock.getProjectParameters(any()))
             .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
 
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock);
         datadogNotifier = new DatadogNotifier(notificatorRegistryMock, buildsManagerMock, chainProcessor);
     }
 
@@ -515,4 +520,51 @@ public class DatadogNotifierProcessingTest {
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
     }
+
+    @Test
+    public void shouldSendWebhooksWithGitInformation() {
+        // Setup: [job -> pipeline]
+        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .build();
+        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+        when(gitInfoExtractorMock.extractGitInfo(pipelineBuild)).thenReturn(Optional.of(defaultGitInfo()));
+
+        // When
+        datadogNotifier.onFinishedBuild(pipelineBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
+            DEFAULT_NAME,
+            defaultUrl(pipelineBuild),
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            "2",
+            "2",
+            NO_PARTIAL_RETRY,
+            PipelineStatus.SUCCESS);
+        expectedPipelineWebhook.setGitInfo(defaultGitInfo());
+
+        JobWebhook expectedJobWebhook = new JobWebhook(
+            DEFAULT_NAME,
+            defaultUrl(jobBuild),
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            "2",
+            DEFAULT_NAME,
+            "1",
+            JobStatus.SUCCESS,
+            DEFAULT_QUEUE_TIME);
+        expectedJobWebhook.setGitInfo(defaultGitInfo());
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).containsExactlyInAnyOrder(expectedPipelineWebhook, expectedJobWebhook);
+    }
+
 }

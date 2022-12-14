@@ -132,7 +132,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -159,7 +159,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -190,7 +190,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -235,7 +235,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         JobWebhook secondJobWebhook = new JobWebhook(
             DEFAULT_NAME,
@@ -299,7 +299,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         // First job should be removed as it started before the pipeline (accounting for 3s offset)
         JobWebhook secondJobWebhook = new JobWebhook(
@@ -349,7 +349,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         // Second job should be removed as the build is composite
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -396,7 +396,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         // Second job should be removed as the build is personal
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -444,7 +444,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -489,7 +489,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
          JobWebhook jobWebhook = new JobWebhook(
              DEFAULT_NAME,
@@ -538,7 +538,7 @@ public class DatadogNotifierProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooks(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
 
         PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
             DEFAULT_NAME,

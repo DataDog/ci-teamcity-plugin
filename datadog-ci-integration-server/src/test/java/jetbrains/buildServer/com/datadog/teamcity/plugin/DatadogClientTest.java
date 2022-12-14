@@ -28,6 +28,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
@@ -52,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +66,8 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 public class DatadogClientTest {
 
     private static final RetryInformation RETRY_INFO = new RetryInformation(2, 0);
+    private static final int TEST_TIMEOUT_MS = 30_000;
+    private static final String TEST_WEBHOOK_INTAKE = "https://webhook-intake.datad0g.com/api/v2/webhook";
 
     @Captor
     private ArgumentCaptor<HttpEntity<String>> requestCaptor;
@@ -75,7 +80,51 @@ public class DatadogClientTest {
     @Before
     public void setUp() {
         ObjectMapper mapper = new DatadogConfiguration().objectMapper();
-        datadogClient = new DatadogClient(restTemplateMock, mapper, RETRY_INFO);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+        datadogClient = new DatadogClient(restTemplateMock, mapper, RETRY_INFO, executorService);
+    }
+
+    @Test
+    public void shouldSendWebhookAsync() {
+        // Setup
+        when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
+            .thenReturn(ResponseEntity.ok("Successful Request"));
+
+        // When
+        PipelineWebhook pipelineWebhook = defaultPipeline();
+        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+
+        verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(1))
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
+
+        String expectedJson = loadJson("default-pipeline.json");
+        String body = requestCaptor.getValue().getBody();
+        assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
+    }
+
+    @Test
+    public void shouldSendMultipleWebhooksAsync() {
+        // Setup
+        when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
+            .thenReturn(ResponseEntity.ok("Successful Request"));
+
+        // When
+        List<Webhook> webhooks = Arrays.asList(completeJob(), completePipeline());
+        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE);
+
+        // Then
+        verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(2))
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
+
+        String expectedJobJson = loadJson("complete-job.json");
+        String expectedPipelineJson = loadJson("complete-pipeline.json");
+
+        List<HttpEntity<String>> requests = requestCaptor.getAllValues();
+        assertThat(requests).hasSize(2)
+            .anyMatch(req -> removeWhitespaces(req.getBody()).equals(removeWhitespaces(expectedJobJson)))
+            .anyMatch(req -> removeWhitespaces(req.getBody()).equals(removeWhitespaces(expectedPipelineJson)));
+
     }
 
     @Test
@@ -86,11 +135,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
@@ -114,11 +163,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
@@ -142,11 +191,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
@@ -170,11 +219,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(1))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isFalse();
     }
 
@@ -187,11 +236,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isFalse();
     }
 
@@ -203,11 +252,11 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
-        boolean successful = datadogClient.sendWebhooks(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
@@ -230,11 +279,11 @@ public class DatadogClientTest {
 
         // When
         JobWebhook jobWebhook = completeJob();
-        boolean successful = datadogClient.sendWebhooks(singletonList(jobWebhook), TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
@@ -247,31 +296,6 @@ public class DatadogClientTest {
         String expectedJson = loadJson("complete-job.json");
         String body = requestCaptor.getValue().getBody();
         assertThat(removeWhitespaces(body)).isEqualTo(removeWhitespaces(expectedJson));
-    }
-
-    @Test
-    public void shouldSendMultipleWebhooks() {
-        // Setup
-        when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-            .thenReturn(ResponseEntity.ok("Successful Request"));
-
-        // When
-        List<Webhook> webhooks = Arrays.asList(completeJob(), completePipeline());
-        boolean successful = datadogClient.sendWebhooks(webhooks, TEST_API_KEY, TEST_DD_SITE);
-
-        // Then
-        verify(restTemplateMock, times(2))
-            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
-        assertThat(successful).isTrue();
-
-        String expectedJobJson = loadJson("complete-job.json");
-        String expectedPipelineJson = loadJson("complete-pipeline.json");
-
-        List<HttpEntity<String>> requests = requestCaptor.getAllValues();
-        assertThat(requests).hasSize(2)
-            .anyMatch(req -> removeWhitespaces(req.getBody()).equals(removeWhitespaces(expectedJobJson)))
-            .anyMatch(req -> removeWhitespaces(req.getBody()).equals(removeWhitespaces(expectedPipelineJson)));
-
     }
 
     private static PipelineWebhook defaultPipeline() {

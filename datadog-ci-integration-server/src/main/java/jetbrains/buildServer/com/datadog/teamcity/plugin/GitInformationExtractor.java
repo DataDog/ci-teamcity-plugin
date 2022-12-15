@@ -4,14 +4,12 @@ import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.serverSide.BuildRevision;
 import jetbrains.buildServer.serverSide.SBuild;
-import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
 import jetbrains.buildServer.vcs.VcsRootInstanceEx;
+import jetbrains.buildServer.vcs.impl.VcsModificationEx;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -45,25 +43,29 @@ public class GitInformationExtractor {
 
         BuildRevision revision = revisionOptional.get();
         VcsRootInstanceEx vcsRootInstance = (VcsRootInstanceEx) revision.getRoot();
-        SVcsModification gitModification = vcsRootInstance.findModificationByVersion(revision.getRevision());
+        VcsModificationEx gitModification = (VcsModificationEx) vcsRootInstance.findModificationByVersion(revision.getRevision());
 
         if (gitModification == null) {
             LOG.warn(format("Could not find modification for revision '%s' from VCS root '%s'", revision, vcsRootInstance));
             return Optional.empty();
         }
 
-        GitUserInfo gitUserInfo = extractUserInfo(build, vcsRootInstance, gitModification);
+        UsernameStyle usernameStyle = getUsernameStyle(vcsRootInstance);
+        GitUserInfo committerInfo = extractCommitterInfo(build, gitModification, usernameStyle);
+        GitUserInfo authorInfo = tryExtractAuthorInfo(build, gitModification, usernameStyle)
+            .orElse(committerInfo);
+
         return Optional.of(new GitInfo()
             .withRepositoryURL(vcsRootInstance.getProperty(URL_PROPERTY))
             .withDefaultBranch(vcsRootInstance.getProperty(BRANCH_PROPERTY))
-            .withMessage(gitModification.getDescription())
+            .withMessage(gitModification.getDescription().trim())
             .withSha(gitModification.getVersion())
-            .withCommitterName(gitUserInfo.username)
-            .withAuthorName(gitUserInfo.username)
             .withCommitTime(toRFC3339(gitModification.getCommitDate()))
+            .withCommitterName(committerInfo.username)
+            .withCommitterEmail(committerInfo.email)
             .withAuthorTime(toRFC3339(gitModification.getVcsDate()))
-            .withAuthorEmail(gitUserInfo.email)
-            .withCommitterEmail(gitUserInfo.email)
+            .withAuthorName(authorInfo.username)
+            .withAuthorEmail(authorInfo.email)
             .withBranch(getBranch(build)));
     }
 
@@ -71,15 +73,32 @@ public class GitInformationExtractor {
         return rev.getRoot().getVcsName().equalsIgnoreCase(GIT_VCS);
     }
 
-    private GitUserInfo extractUserInfo(SBuild build, VcsRootInstanceEx vcsRootInstance, SVcsModification change) {
-        String username = getUsernameFrom(change);
+    private UsernameStyle getUsernameStyle(VcsRootInstanceEx vcsRootInstance) {
         String usernameStyle = vcsRootInstance.getProperty(USERNAME_STYLE_PROPERTY);
         if (usernameStyle == null || usernameStyle.isEmpty()) {
             throw new IllegalArgumentException("Could not retrieve username style from VCS root properties: " + vcsRootInstance.getProperties());
         }
 
-        UsernameStyle style = UsernameStyle.valueOf(usernameStyle);
-        switch (style) {
+        return UsernameStyle.valueOf(usernameStyle);
+    }
+
+    private GitUserInfo extractCommitterInfo(SBuild build, VcsModificationEx change, UsernameStyle usernameStyle) {
+        String committerUsername = change.getCommiterName();
+        return parseUsername(build, committerUsername, usernameStyle);
+    }
+
+    private Optional<GitUserInfo> tryExtractAuthorInfo(SBuild build, SVcsModification change, UsernameStyle usernameStyle) {
+        String authorUsername = change.getUserName();
+        if (authorUsername == null || authorUsername.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(parseUsername(build, authorUsername, usernameStyle));
+    }
+
+    @Nonnull
+    private GitUserInfo parseUsername(SBuild build, String username, UsernameStyle usernameStyle) {
+        switch (usernameStyle) {
             case FULL:
                 return parseFullStyle(username);
             case EMAIL:
@@ -89,28 +108,8 @@ public class GitInformationExtractor {
                 // These styles do not have any email information, so we will generate one
                 return parseStylesWithoutEmail(username, build);
             default:
-                throw new IllegalArgumentException("Cannot recognize username style: " + style);
+                throw new IllegalArgumentException("Cannot recognize username style: " + usernameStyle);
         }
-    }
-
-    @Nonnull
-    private static String getUsernameFrom(SVcsModification change) {
-        String username = change.getUserName();
-        if (username != null && !username.isEmpty()) {
-            return username;
-        }
-
-        List<SUser> committers = new ArrayList<>(change.getCommitters());
-        if (committers.isEmpty()) {
-            throw new IllegalArgumentException("Could not get committers from change: " + change);
-        }
-
-        String committerUsername = committers.get(0).getUsername();
-        if (committerUsername == null || committerUsername.isEmpty()) {
-            throw new IllegalArgumentException("Could not get committer username from committer: " + committers.get(0));
-        }
-
-        return committerUsername;
     }
 
     @Nonnull

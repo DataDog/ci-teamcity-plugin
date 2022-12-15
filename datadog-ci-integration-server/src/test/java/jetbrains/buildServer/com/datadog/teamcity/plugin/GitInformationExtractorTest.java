@@ -20,12 +20,14 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationEx
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.UsernameStyle.NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.UsernameStyle.USERID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_AUTHOR_USERNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_SHA;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_USERNAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMITTER_USERNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_GIT_MESSAGE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REPO_URL;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.EMPTY_AUTHOR_USERNAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
@@ -56,7 +58,7 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldReturnEmptyForNonGitRevisions() {
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision("NOT-GIT", "", "", emptyList())
+            .addRevision("NOT-GIT", "", DEFAULT_COMMITTER_USERNAME, DEFAULT_AUTHOR_USERNAME)
             .build();
 
         Optional<GitInfo> gitInfo = gitInfoExtractor.extractGitInfo(build);
@@ -67,9 +69,9 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldParseCorrectFullStyleUsername() {
         // Setup
-        String fullUsername = "John Doe <johndoe@datadog.com>";
+        String committerUsername = "John Doe <johndoe@datadog.com>";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, FULL.name(), fullUsername, emptyList())
+            .addRevision(GIT_VCS, FULL.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         // When
@@ -91,7 +93,7 @@ public class GitInformationExtractorTest {
         // Setup: username is missing the "<email>" part
         String invalidFullUsername = "Invalid Full Username";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, FULL.name(), invalidFullUsername, emptyList())
+            .addRevision(GIT_VCS, FULL.name(), invalidFullUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         gitInfoExtractor.extractGitInfo(build);
@@ -100,9 +102,9 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldParseCorrectEmailUsername() {
         // Setup
-        String emailUsername = "johndoe@datadog.com";
+        String committerUsername = "johndoe@datadog.com";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, EMAIL.name(), emailUsername, emptyList())
+            .addRevision(GIT_VCS, EMAIL.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         // When
@@ -122,9 +124,9 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldCreateDefaultEmailForNameStyle() {
         // Setup
-        String emailUsername = "John Doe";
+        String committerUsername = "John Doe";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, NAME.name(), emailUsername, emptyList())
+            .addRevision(GIT_VCS, NAME.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         // When
@@ -144,9 +146,9 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldCreateDefaultEmailForUserIDStyle() {
         // Setup
-        String userIdUsername = "johndoe";
+        String committerUsername = "johndoe";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, USERID.name(), userIdUsername, emptyList())
+            .addRevision(GIT_VCS, USERID.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         // When
@@ -166,9 +168,9 @@ public class GitInformationExtractorTest {
     @Test
     public void shouldUseProvidedEmailDomainForUserIDStyle() {
         // Setup
-        String userIdUsername = "johndoe";
+        String committerUsername = "johndoe";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, USERID.name(), userIdUsername, emptyList())
+            .addRevision(GIT_VCS, USERID.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
             .build();
 
         when(projectHandlerMock.getEmailDomainParameter(build))
@@ -189,11 +191,12 @@ public class GitInformationExtractorTest {
     }
 
     @Test
-    public void shouldUseCommitterUsernameIfChangeUsernameNotPresent() {
+    public void shouldUseAuthorInformationIfPresent() {
         // Setup
-        String fullUsername = "John Doe <johndoe@datadog.com>";
+        String committerUsername = "John Doe <johndoe@datadog.com>";
+        String authorUsername = "Jane Doe <janedoe@datadog.com>";
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, FULL.name(), null, singletonList(fullUsername))
+            .addRevision(GIT_VCS, FULL.name(), committerUsername, authorUsername)
             .build();
 
         // When
@@ -202,9 +205,9 @@ public class GitInformationExtractorTest {
         // Then
         assertThat(gitInfoOptional).isNotEmpty();
         GitInfo expectedGitInfo = defaultGitInfo()
-            .withAuthorName("John Doe")
+            .withAuthorName("Jane Doe")
+            .withAuthorEmail("janedoe@datadog.com")
             .withCommitterName("John Doe")
-            .withAuthorEmail("johndoe@datadog.com")
             .withCommitterEmail("johndoe@datadog.com");
 
         assertThat(gitInfoOptional.get()).isEqualTo(expectedGitInfo);
@@ -213,7 +216,7 @@ public class GitInformationExtractorTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionIfUsernameStyleIsEmpty() {
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, "", DEFAULT_COMMIT_USERNAME, emptyList())
+            .addRevision(GIT_VCS, "", DEFAULT_COMMITTER_USERNAME, EMPTY_AUTHOR_USERNAME)
             .build();
 
         gitInfoExtractor.extractGitInfo(build);
@@ -222,25 +225,7 @@ public class GitInformationExtractorTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionIfUsernameStyleIsNull() {
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, null, DEFAULT_COMMIT_USERNAME, emptyList())
-            .build();
-
-        gitInfoExtractor.extractGitInfo(build);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldThrowExceptionIfUsernameAndCommittersAreMissing() {
-        SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, FULL.name(), "", emptyList())
-            .build();
-
-        gitInfoExtractor.extractGitInfo(build);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldThrowExceptionIfUsernameMissingAndCommitterNameIsEmpty() {
-        SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, FULL.name(), "", singletonList(""))
+            .addRevision(GIT_VCS, null, DEFAULT_COMMITTER_USERNAME, EMPTY_AUTHOR_USERNAME)
             .build();
 
         gitInfoExtractor.extractGitInfo(build);
@@ -249,7 +234,7 @@ public class GitInformationExtractorTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionForInvalidUsernameStyle() {
         SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, "INVALID", "John Doe <johndoe@datadog.com>", emptyList())
+            .addRevision(GIT_VCS, "INVALID", "John Doe <johndoe@datadog.com>", EMPTY_AUTHOR_USERNAME)
             .build();
 
         gitInfoExtractor.extractGitInfo(build);

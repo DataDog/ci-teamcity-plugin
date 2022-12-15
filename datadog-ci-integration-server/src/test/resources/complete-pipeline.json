@@ -10,9 +10,9 @@
     "message": "git message",
     "commit_time": "1970-01-01T00:00:01Z",
     "author_time": "1970-01-01T00:00:01Z",
-    "committer_name": "username",
+    "committer_name": "committer-username",
     "committer_email": "defaultemail@email.com",
-    "author_name": "username",
+    "author_name": "committer-username",
     "author_email": "defaultemail@email.com",
     "default_branch": "main",
     "branch": "main"

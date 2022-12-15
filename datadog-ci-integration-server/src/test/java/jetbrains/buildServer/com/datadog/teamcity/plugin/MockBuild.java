@@ -11,9 +11,9 @@ import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildAgent;
 import jetbrains.buildServer.serverSide.TriggeredBy;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
-import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.vcs.SVcsModification;
 import jetbrains.buildServer.vcs.VcsRootInstanceEx;
+import jetbrains.buildServer.vcs.impl.VcsModificationEx;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -201,22 +201,15 @@ public class MockBuild {
 
         public Builder addRevision(String vcsName,
                                    String usernameStyle,
-                                   String changeUsername,
-                                   List<String> committersUsername) {
-            List<SUser> committerMocks = committersUsername.stream().map(username -> {
-                SUser userMock = mock(SUser.class);
-                when(userMock.getUsername()).thenReturn(username);
-                return userMock;
-            })
-            .collect(toList());
-
-            SVcsModification changeMock = mock(SVcsModification.class);
+                                   String committerUsername,
+                                   String authorUsername) {
+            VcsModificationEx changeMock = mock(VcsModificationEx.class);
             when(changeMock.getDescription()).thenReturn(DEFAULT_GIT_MESSAGE);
             when(changeMock.getVersion()).thenReturn(DEFAULT_COMMIT_SHA);
             when(changeMock.getCommitDate()).thenReturn(DEFAULT_COMMIT_DATE);
             when(changeMock.getVcsDate()).thenReturn(DEFAULT_COMMIT_DATE);
-            when(changeMock.getUserName()).thenReturn(changeUsername);
-            when(changeMock.getCommitters()).thenReturn(committerMocks);
+            when(changeMock.getCommiterName()).thenReturn(committerUsername);
+            when(changeMock.getUserName()).thenReturn(authorUsername);
 
             VcsRootInstanceEx vcsRootMock = mock(VcsRootInstanceEx.class);
             when(vcsRootMock.getVcsName()).thenReturn(vcsName);

@@ -29,7 +29,9 @@ public final class TestUtils {
     public static final String DEFAULT_BRANCH = "main";
     public static final String DEFAULT_GIT_MESSAGE = "git message";
     public static final String DEFAULT_COMMIT_SHA = "sha";
-    public static final String DEFAULT_COMMIT_USERNAME = "username";
+    public static final String DEFAULT_COMMITTER_USERNAME = "committer-username";
+    public static final String DEFAULT_AUTHOR_USERNAME = "author-username";
+    public static final String EMPTY_AUTHOR_USERNAME = "";
     public static final String DEFAULT_COMMIT_EMAIL = "defaultemail@email.com";
     public static final String DEFAULT_CHECKOUT_DIR = "default-checkout-dir";
     public static final String DEFAULT_NODE_HOSTNAME = "default-hostname";
@@ -69,8 +71,8 @@ public final class TestUtils {
             .withDefaultBranch(DEFAULT_BRANCH)
             .withMessage(DEFAULT_GIT_MESSAGE)
             .withSha(DEFAULT_COMMIT_SHA)
-            .withCommitterName(DEFAULT_COMMIT_USERNAME)
-            .withAuthorName(DEFAULT_COMMIT_USERNAME)
+            .withCommitterName(DEFAULT_COMMITTER_USERNAME)
+            .withAuthorName(DEFAULT_COMMITTER_USERNAME)
             .withCommitTime(toRFC3339(DEFAULT_COMMIT_DATE))
             .withAuthorTime(toRFC3339(DEFAULT_COMMIT_DATE))
             .withAuthorEmail(DEFAULT_COMMIT_EMAIL)

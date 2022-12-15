@@ -2,7 +2,6 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.RetryInformation;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
@@ -34,25 +33,19 @@ import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_API_KEY_HEADER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_CI_PROVIDER_HEADER;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BRANCH;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BUILD_URL;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_DATE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_EMAIL;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_SHA;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_COMMIT_USERNAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_GIT_MESSAGE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_PIPELINE_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_PIPELINE_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_TIME;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_REPO_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultErrorInfo;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook.PipelineStatus.SUCCESS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,9 +64,11 @@ public class DatadogClientTest {
 
     private static final RetryInformation RETRY_INFO = new RetryInformation(2, 0);
 
-    @Captor private ArgumentCaptor<HttpEntity<String>> requestCaptor;
+    @Captor
+    private ArgumentCaptor<HttpEntity<String>> requestCaptor;
 
-    @Mock private RestTemplate  restTemplateMock;
+    @Mock
+    private RestTemplate restTemplateMock;
 
     private DatadogClient datadogClient;
 
@@ -87,7 +82,7 @@ public class DatadogClientTest {
     public void shouldSendWebhookForPipeline() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.ok("Successful Request"));
+            .thenReturn(ResponseEntity.ok("Successful Request"));
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
@@ -95,15 +90,15 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(1))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-                .hasSize(3)
-                .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-                .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-                .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .hasSize(3)
+            .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
+            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -114,8 +109,8 @@ public class DatadogClientTest {
     public void shouldRetryOnServerErrors() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.status(INTERNAL_SERVER_ERROR).body("Server error"))
-                .thenReturn(ResponseEntity.ok("Successful Request"));
+            .thenReturn(ResponseEntity.status(INTERNAL_SERVER_ERROR).body("Server error"))
+            .thenReturn(ResponseEntity.ok("Successful Request"));
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
@@ -123,15 +118,15 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(2))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-                .hasSize(3)
-                .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-                .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-                .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .hasSize(3)
+            .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
+            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -142,8 +137,8 @@ public class DatadogClientTest {
     public void shouldRetryOnTransientExceptions() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenThrow(new RestClientException("Transient exception"))
-                .thenReturn(ResponseEntity.ok("Successful Request"));
+            .thenThrow(new RestClientException("Transient exception"))
+            .thenReturn(ResponseEntity.ok("Successful Request"));
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
@@ -151,15 +146,15 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(2))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-                .hasSize(3)
-                .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-                .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-                .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .hasSize(3)
+            .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
+            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -171,7 +166,7 @@ public class DatadogClientTest {
         // Setup
         String mockApiKey = "mock-api-key";
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.badRequest().body("Bad request"));
+            .thenReturn(ResponseEntity.badRequest().body("Bad request"));
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
@@ -179,7 +174,7 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(1))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isFalse();
     }
 
@@ -188,7 +183,7 @@ public class DatadogClientTest {
         // Setup
         String mockApiKey = "mock-api-key";
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.status(INTERNAL_SERVER_ERROR).body("Server error"));
+            .thenReturn(ResponseEntity.status(INTERNAL_SERVER_ERROR).body("Server error"));
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
@@ -196,7 +191,7 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isFalse();
     }
 
@@ -204,7 +199,7 @@ public class DatadogClientTest {
     public void shouldSendCompleteWebhookForPipeline() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.ok("Successful Request"));
+            .thenReturn(ResponseEntity.ok("Successful Request"));
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
@@ -212,15 +207,15 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(1))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-                .hasSize(3)
-                .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-                .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-                .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .hasSize(3)
+            .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
+            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
 
         String expectedJson = loadJson("complete-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -231,7 +226,7 @@ public class DatadogClientTest {
     public void shouldSendCompleteWebhookForJob() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
-                .thenReturn(ResponseEntity.ok("Successful Request"));
+            .thenReturn(ResponseEntity.ok("Successful Request"));
 
         // When
         JobWebhook jobWebhook = completeJob();
@@ -239,15 +234,15 @@ public class DatadogClientTest {
 
         // Then
         verify(restTemplateMock, times(1))
-                .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
+            .exchange(eq("https://webhook-intake.datad0g.com/api/v2/webhook"), eq(POST), requestCaptor.capture(), eq(String.class));
         assertThat(successful).isTrue();
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-                .hasSize(3)
-                .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-                .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-                .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .hasSize(3)
+            .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
+            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
 
         String expectedJson = loadJson("complete-job.json");
         String body = requestCaptor.getValue().getBody();
@@ -281,52 +276,40 @@ public class DatadogClientTest {
 
     private static PipelineWebhook defaultPipeline() {
         return new PipelineWebhook(
-                DEFAULT_NAME,
+            DEFAULT_NAME,
             DEFAULT_BUILD_URL,
-                toRFC3339(DEFAULT_START_DATE),
-                toRFC3339(DEFAULT_END_DATE),
-                DEFAULT_ID,
-                DEFAULT_ID,
-                NO_PARTIAL_RETRY,
-                SUCCESS
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            DEFAULT_ID,
+            DEFAULT_ID,
+            NO_PARTIAL_RETRY,
+            SUCCESS
         );
     }
 
     private static PipelineWebhook completePipeline() {
-        return (PipelineWebhook) defaultPipeline().withGitInfo(defaultGitInfo());
+        PipelineWebhook pipelineWebhook = defaultPipeline();
+        pipelineWebhook.setGitInfo(defaultGitInfo());
+        return pipelineWebhook;
     }
 
     private static JobWebhook completeJob() {
         JobWebhook jobWebhook = new JobWebhook(
-                DEFAULT_NAME,
+            DEFAULT_NAME,
             DEFAULT_BUILD_URL,
-                toRFC3339(DEFAULT_START_DATE),
-                toRFC3339(DEFAULT_END_DATE),
-                DEFAULT_PIPELINE_ID,
-                DEFAULT_PIPELINE_NAME,
-                DEFAULT_ID,
-                JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            DEFAULT_PIPELINE_ID,
+            DEFAULT_PIPELINE_NAME,
+            DEFAULT_ID,
+            JobStatus.SUCCESS,
+            DEFAULT_QUEUE_TIME
         );
 
         jobWebhook.setErrorInfo(defaultErrorInfo());
         jobWebhook.setHostInfo(defaultHostInfo());
-        return (JobWebhook) jobWebhook.withGitInfo(defaultGitInfo());
-    }
-
-    private static GitInfo defaultGitInfo() {
-        return new GitInfo()
-                .withRepositoryURL(DEFAULT_REPO_URL)
-                .withDefaultBranch(DEFAULT_BRANCH)
-                .withMessage(DEFAULT_GIT_MESSAGE)
-                .withSha(DEFAULT_COMMIT_SHA)
-                .withCommitterName(DEFAULT_COMMIT_USERNAME)
-                .withAuthorName(DEFAULT_COMMIT_USERNAME)
-                .withCommitTime(toRFC3339(DEFAULT_COMMIT_DATE))
-                .withAuthorTime(toRFC3339(DEFAULT_COMMIT_DATE))
-                .withAuthorEmail(DEFAULT_COMMIT_EMAIL)
-                .withCommitterEmail(DEFAULT_COMMIT_EMAIL)
-                .withBranch(DEFAULT_BRANCH);
+        jobWebhook.setGitInfo(defaultGitInfo());
+        return jobWebhook;
     }
 
     private String loadJson(String fileName) {

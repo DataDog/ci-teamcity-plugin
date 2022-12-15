@@ -1,5 +1,6 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.HostInfo;
 import jetbrains.buildServer.messages.Status;
@@ -9,6 +10,7 @@ import java.time.Instant;
 import java.util.Date;
 
 import static java.lang.String.format;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 
 public final class TestUtils {
@@ -27,7 +29,9 @@ public final class TestUtils {
     public static final String DEFAULT_BRANCH = "main";
     public static final String DEFAULT_GIT_MESSAGE = "git message";
     public static final String DEFAULT_COMMIT_SHA = "sha";
-    public static final String DEFAULT_COMMIT_USERNAME = "username";
+    public static final String DEFAULT_COMMITTER_USERNAME = "committer-username";
+    public static final String DEFAULT_AUTHOR_USERNAME = "author-username";
+    public static final String EMPTY_AUTHOR_USERNAME = "";
     public static final String DEFAULT_COMMIT_EMAIL = "defaultemail@email.com";
     public static final String DEFAULT_CHECKOUT_DIR = "default-checkout-dir";
     public static final String DEFAULT_NODE_HOSTNAME = "default-hostname";
@@ -35,6 +39,7 @@ public final class TestUtils {
     public static final String DEFAULT_FAILURE_MESSAGE = "default-failure-message";
     public static final Status DEFAULT_STATUS = Status.NORMAL;
     public static final String DEFAULT_ERROR_TYPE = "Tests Failed";
+    public static final String DEFAULT_REVISION = "revision";
 
     public static final int DEFAULT_QUEUE_TIME = 1000;
     public static final boolean IS_PARTIAL_RETRY = true;
@@ -58,6 +63,21 @@ public final class TestUtils {
 
     public static ErrorInfo defaultErrorInfo() {
         return new ErrorInfo(DEFAULT_FAILURE_MESSAGE, DEFAULT_ERROR_TYPE, PROVIDER);
+    }
+
+    public static GitInfo defaultGitInfo() {
+        return new GitInfo()
+            .withRepositoryURL(DEFAULT_REPO_URL)
+            .withDefaultBranch(DEFAULT_BRANCH)
+            .withMessage(DEFAULT_GIT_MESSAGE)
+            .withSha(DEFAULT_COMMIT_SHA)
+            .withCommitterName(DEFAULT_COMMITTER_USERNAME)
+            .withAuthorName(DEFAULT_COMMITTER_USERNAME)
+            .withCommitTime(toRFC3339(DEFAULT_COMMIT_DATE))
+            .withAuthorTime(toRFC3339(DEFAULT_COMMIT_DATE))
+            .withAuthorEmail(DEFAULT_COMMIT_EMAIL)
+            .withCommitterEmail(DEFAULT_COMMIT_EMAIL)
+            .withBranch(DEFAULT_BRANCH);
     }
 
     private TestUtils() { }

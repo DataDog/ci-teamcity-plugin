@@ -40,14 +40,8 @@ public class Webhook {
         this.end = end;
     }
 
-    public Webhook withGitInfo(@Nullable GitInfo gitInfo) {
+    public void setGitInfo(@Nullable GitInfo gitInfo) {
         this.gitInfo = gitInfo;
-        return this;
-    }
-
-    @Nullable
-    public GitInfo gitInfo() {
-        return gitInfo;
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 public class Webhook {
@@ -32,6 +33,10 @@ public class Webhook {
     @Nullable
     protected GitInfo gitInfo;
 
+    @JsonProperty("tags")
+    @Nullable
+    protected List<String> tags;
+
     protected Webhook(@Nonnull CILevel level, @Nonnull String name, @Nonnull String url, @Nonnull String start, @Nonnull String end) {
         this.level = level;
         this.name = name;
@@ -44,12 +49,16 @@ public class Webhook {
         this.gitInfo = gitInfo;
     }
 
+    public void setTags(@Nullable List<String> tags) {
+        this.tags = tags;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Webhook webhook = (Webhook) o;
-        return level == webhook.level && name.equals(webhook.name) && url.equals(webhook.url) && start.equals(webhook.start) && end.equals(webhook.end) && Objects.equals(gitInfo, webhook.gitInfo);
+        return level == webhook.level && name.equals(webhook.name) && url.equals(webhook.url) && start.equals(webhook.start) && end.equals(webhook.end) && Objects.equals(gitInfo, webhook.gitInfo) && Objects.equals(tags, webhook.tags);
     }
 
     @Override

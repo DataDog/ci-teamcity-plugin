@@ -567,4 +567,32 @@ public class DatadogNotifierProcessingTest {
         assertThat(webhooksSent).containsExactlyInAnyOrder(expectedPipelineWebhook, expectedJobWebhook);
     }
 
+    @Test
+    public void shouldSendWebhookWithTags() {
+        // Setup
+        List<String> tags = Arrays.asList("mytag1:myvalue1", "mytag2:myvalue2");
+        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).withTags(tags).build();
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
+
+        // When
+        datadogNotifier.onFinishedBuild(pipelineBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        PipelineWebhook expectedWebhook = new PipelineWebhook(
+            DEFAULT_NAME,
+            defaultUrl(pipelineBuild),
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            "1",
+            "1",
+            NO_PARTIAL_RETRY,
+            PipelineStatus.SUCCESS);
+
+        expectedWebhook.setTags(tags);
+        assertThat(webhooksCaptor.getValue()).containsExactly(expectedWebhook);
+    }
+
 }

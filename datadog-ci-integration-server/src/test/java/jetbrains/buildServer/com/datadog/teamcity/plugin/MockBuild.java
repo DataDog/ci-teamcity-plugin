@@ -62,6 +62,7 @@ public class MockBuild {
         when(buildMock.getQueuedDate()).thenReturn(b.queueDate);
         when(buildMock.isPersonal()).thenReturn(b.isPersonal);
         when(buildMock.getBranch()).thenReturn(b.branchMock);
+        when(buildMock.getTags()).thenReturn(b.tags);
         when(buildMock.getContainingChanges()).thenReturn(b.changesListMock);
         when(buildMock.getFailureReasons()).thenReturn(b.failureReasons);
         when(buildMock.getRevisions()).thenReturn(b.revisions);
@@ -99,6 +100,7 @@ public class MockBuild {
         private Date endDate = DEFAULT_END_DATE;
         private Date queueDate = DEFAULT_QUEUE_DATE;
         private Branch branchMock;
+        private List<String> tags = new ArrayList<>();
         private final List<SVcsModification> changesListMock = new ArrayList<>();
         private final List<BuildProblemData> failureReasons = new ArrayList<>();
         private final List<BuildRevision> revisions = new ArrayList<>();
@@ -196,6 +198,11 @@ public class MockBuild {
                     return dependencyMock;
                 })
                 .collect(toList());
+            return this;
+        }
+
+        public Builder withTags(List<String> tags) {
+            this.tags = tags;
             return this;
         }
 

@@ -94,6 +94,10 @@ public class BuildChainProcessor {
             pipelineBuild.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR);
 
         gitInformation.ifPresent(pipelineWebhook::setGitInfo);
+        if (!pipelineBuild.getTags().isEmpty()) {
+            pipelineWebhook.setTags(pipelineBuild.getTags());
+        }
+
         return pipelineWebhook;
     }
 
@@ -132,6 +136,10 @@ public class BuildChainProcessor {
 
         if (!jobBuild.getBuildPromotion().getDependencies().isEmpty()) {
             jobWebhook.setDependenciesIds(dependenciesIds(jobBuild));
+        }
+
+        if (!jobBuild.getTags().isEmpty()) {
+            jobWebhook.setTags(jobBuild.getTags());
         }
 
         getHostInfo(jobBuild).ifPresent(jobWebhook::setHostInfo);

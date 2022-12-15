@@ -2,6 +2,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
 import org.springframework.http.HttpEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -21,6 +23,7 @@ public class DatadogClient {
 
     private static final Logger LOG = Logger.getInstance(DatadogClient.class.getName());
     private static final String TEAMCITY_PROVIDER = "teamcity";
+    private static final String WEBHOOK_INTAKE_BASE_URL = "https://webhook-intake.%s/api/v2/webhook";
 
     // Headers
     protected static final String DD_API_KEY_HEADER = "DD-API-KEY";
@@ -29,25 +32,57 @@ public class DatadogClient {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final RetryInformation retryInfo;
+    private final ExecutorService clientExecutor;
 
-    public DatadogClient(RestTemplate restTemplate, ObjectMapper objectMapper, RetryInformation retryInfo) {
+    public DatadogClient(RestTemplate restTemplate, ObjectMapper objectMapper, RetryInformation retryInfo, ExecutorService clientExecutor) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.retryInfo = retryInfo;
+        this.clientExecutor = clientExecutor;
     }
 
-    public boolean sendWebhooks(List<Webhook> webhooks, String apiKey, String ddSite) {
-        String url = format("https://webhook-intake.%s/api/v2/webhook", ddSite);
-        HttpHeaders headers = getHeaders(apiKey);
-
-        // TODO this will be changed by async sending
-        boolean successful = true;
+    public void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite) {
         for (Webhook webhook : webhooks) {
-            String webhookPayload = serialize(webhook);
-            successful &= sendWebhookWithRetries(url, webhookPayload, headers);
+            clientExecutor.submit(() -> sendWebhookWithRetries(webhook, apiKey, ddSite));
+        }
+    }
+
+    @VisibleForTesting
+    protected boolean sendWebhookWithRetries(Webhook webhook, String apiKey, String ddSite) {
+        String url = format(WEBHOOK_INTAKE_BASE_URL, ddSite);
+        String payload = serialize(webhook);
+        HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
+
+        // TODO remove content and headers from logs before publishing
+        int currentAttempt = 0;
+        while (currentAttempt <= retryInfo.maxRetries) {
+            try {
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    LOG.info(format("Successfully sent webhook to url '%s' with body '%s'", url, payload));
+                    return true;
+                } else if (response.getStatusCode().is5xxServerError()) {
+                    LOG.warn(format("Could not send webhook to url '%s' with body '%s'. " +
+                                    "Status code: '%s', Retry number %d/%d",
+                            url, payload, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
+
+                    sleepSeconds(retryInfo.backoffSeconds);
+                } else {
+                    // Status code is different from 5xx, so we won't retry
+                    LOG.warn(format("Could not send webhook to url '%s' with body '%s'. " +
+                                    "Status code: '%s'.", url, payload, response.getStatusCode()));
+                    return false;
+                }
+            } catch (RestClientException ex) {
+                LOG.error(format("Exception occurred while sending webhooks to url '%s' with body '%s'" +
+                                ". Retry number %d/%d: ", url, payload, currentAttempt, retryInfo.maxRetries), ex);
+                sleepSeconds(retryInfo.backoffSeconds);
+            }
+
+            currentAttempt++;
         }
 
-        return successful;
+        return false;
     }
 
     private HttpHeaders getHeaders(String apiKey) {
@@ -64,41 +99,6 @@ public class DatadogClient {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(format("Could not serialize the content of the entity: %s", entity), e);
         }
-    }
-
-    private boolean sendWebhookWithRetries(String url, String payload, HttpHeaders headers) {
-        HttpEntity<String> request = new HttpEntity<>(payload, headers);
-        int currentAttempt = 0;
-
-        // TODO remove content and headers from logs before publishing
-        while (currentAttempt <= retryInfo.maxRetries) {
-            try {
-                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    LOG.info(format("Successfully sent webhook to url '%s' with body '%s' and headers '%s'", url, payload, headers));
-                    return true;
-                } else if (response.getStatusCode().is5xxServerError()) {
-                    LOG.warn(format("Could not send webhook to url '%s' with body '%s' and headers '%s'. " +
-                                    "Status code: '%s', Retry number %d/%d",
-                            url, payload, headers, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
-
-                    sleepSeconds(retryInfo.backoffSeconds);
-                } else {
-                    // Status code is different from 5xx, so we won't retry
-                    LOG.warn(format("Could not send webhook to url '%s' with body '%s' and headers '%s'. " +
-                                    "Status code: '%s'.", url, payload, headers, response.getStatusCode()));
-                    return false;
-                }
-            } catch (RestClientException ex) {
-                LOG.error(format("Exception occurred while sending webhooks to to url '%s' with body '%s' and headers '%s'" +
-                                ". Retry number %d/%d: ", url, payload, headers, currentAttempt, retryInfo.maxRetries), ex);
-                sleepSeconds(retryInfo.backoffSeconds);
-            }
-
-            currentAttempt++;
-        }
-
-        return false;
     }
 
     private void sleepSeconds(int seconds) {

@@ -65,10 +65,7 @@ public class BuildChainProcessor {
         ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild);
         List<Webhook> webhooks = createWebhooks(pipelineBuild);
 
-        //TODO this currently sends all the webhook synchronously during build processing.
-        // TeamCity discouraged to do network calls during the processing of a build,
-        // so in future this will be replaced by asynchronous sending (CIAPP-5466).
-        datadogClient.sendWebhooks(webhooks, params.apiKey(), params.ddSite());
+        datadogClient.sendWebhooksAsync(webhooks, params.apiKey(), params.ddSite());
     }
 
     /**

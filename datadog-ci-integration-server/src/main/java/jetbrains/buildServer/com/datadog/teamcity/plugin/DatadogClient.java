@@ -53,29 +53,28 @@ public class DatadogClient {
         String payload = serialize(webhook);
         HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
 
-        // TODO remove content and headers from logs before publishing
         int currentAttempt = 0;
         while (currentAttempt <= retryInfo.maxRetries) {
             try {
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
                 if (response.getStatusCode().is2xxSuccessful()) {
-                    LOG.info(format("Successfully sent webhook to url '%s' with body '%s'", url, payload));
+                    LOG.info(format("Successfully sent webhook with id '%s' to '%s'", webhook.id(), url));
                     return true;
                 } else if (response.getStatusCode().is5xxServerError()) {
-                    LOG.warn(format("Could not send webhook to url '%s' with body '%s'. " +
+                    LOG.warn(format("Could not send webhook with id '%s' to '%s'. " +
                                     "Status code: '%s', Retry number %d/%d",
-                            url, payload, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
+                            webhook.id(), url, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
 
                     sleepSeconds(retryInfo.backoffSeconds);
                 } else {
                     // Status code is different from 5xx, so we won't retry
-                    LOG.warn(format("Could not send webhook to url '%s' with body '%s'. " +
-                                    "Status code: '%s'.", url, payload, response.getStatusCode()));
+                    LOG.warn(format("Could not send webhook with id '%s' to url '%s'. " +
+                                    "Status code: '%s'.", webhook.id(), url, response.getStatusCode()));
                     return false;
                 }
             } catch (RestClientException ex) {
-                LOG.error(format("Exception occurred while sending webhooks to url '%s' with body '%s'" +
-                                ". Retry number %d/%d: ", url, payload, currentAttempt, retryInfo.maxRetries), ex);
+                LOG.error(format("Exception occurred while sending webhooks with id '%s' to url '%s'. " +
+                                "Retry number %d/%d: ", webhook.id(), url, currentAttempt, retryInfo.maxRetries), ex);
                 sleepSeconds(retryInfo.backoffSeconds);
             }
 

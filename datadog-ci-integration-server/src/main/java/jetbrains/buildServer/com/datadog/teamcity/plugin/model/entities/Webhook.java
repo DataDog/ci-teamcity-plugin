@@ -7,7 +7,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
-public class Webhook {
+public abstract class Webhook {
 
     @JsonProperty("level")
     @Nonnull
@@ -52,6 +52,8 @@ public class Webhook {
     public void setTags(@Nullable List<String> tags) {
         this.tags = tags;
     }
+
+    public abstract String id();
 
     @Override
     public boolean equals(Object o) {

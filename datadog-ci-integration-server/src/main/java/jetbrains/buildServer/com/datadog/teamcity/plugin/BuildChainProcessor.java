@@ -12,6 +12,7 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.ServerSettings;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -26,9 +27,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.dependenciesIds;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.pipelineStartWithOffset;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
@@ -53,12 +52,14 @@ public class BuildChainProcessor {
     private final DatadogClient datadogClient;
     private final ProjectHandler projectHandler;
     private final GitInformationExtractor gitInformationExtractor;
+    private final ServerSettings serverSettings;
 
-    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor) {
+    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
         this.buildServer = buildServer;
         this.datadogClient = datadogClient;
         this.projectHandler = projectHandler;
         this.gitInformationExtractor = gitInformationExtractor;
+        this.serverSettings = serverSettings;
     }
 
     public void process(SBuild pipelineBuild) {
@@ -136,7 +137,7 @@ public class BuildChainProcessor {
                 queueTimeMs(jobBuild));
 
         if (!jobBuild.getBuildPromotion().getDependencies().isEmpty()) {
-            jobWebhook.setDependenciesIds(dependenciesIds(jobBuild));
+            jobWebhook.setDependenciesIds(getDependenciesIds(jobBuild));
         }
 
         if (!jobBuild.getTags().isEmpty()) {
@@ -171,7 +172,19 @@ public class BuildChainProcessor {
                 .map(failure -> new ErrorInfo(failure.getDescription(), SUPPORTED_FAILURE_TYPES_MAP.get(failure.getType()), domain));
     }
 
+    private List<String> getDependenciesIds(SBuild build) {
+        return build.getBuildPromotion().getDependencies().stream()
+            .filter(dep -> dep.getDependOn().getAssociatedBuild() != null)
+            .map(dep -> buildID(dep.getDependOn().getAssociatedBuild()))
+            .collect(toList());
+    }
+
     private String buildURL(SBuild build) {
         return format("%s/build/%s", buildServer.getRootUrl(), build.getBuildId());
+    }
+
+    private String buildID(SBuild build) {
+        // Server ID is included to avoid build ID conflicts on different TC instances within the same org
+        return format("%s-%s", serverSettings.getServerUUID(), build.getBuildId());
     }
 }

@@ -4,9 +4,6 @@ import jetbrains.buildServer.serverSide.SBuild;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
-
-import static java.util.stream.Collectors.toList;
 
 public final class BuildUtils {
 
@@ -41,23 +38,12 @@ public final class BuildUtils {
         return new Date(pipelineBuild.getStartDate().getTime() - PIPELINE_START_OFFSET_MS);
     }
 
-    public static String buildID(SBuild build) {
-        return String.valueOf(build.getBuildId());
-    }
-
     public static String buildName(SBuild build) {
         return build.getFullName();
     }
 
     public static long queueTimeMs(SBuild build) {
         return build.getStartDate().getTime() - build.getQueuedDate().getTime();
-    }
-
-    public static List<String> dependenciesIds(SBuild build) {
-        return build.getBuildPromotion().getDependencies().stream()
-                .filter(dep -> dep.getDependOn().getAssociatedBuild() != null)
-                .map(dep -> buildID(dep.getDependOn().getAssociatedBuild()))
-                .collect(toList());
     }
 
     public static String toRFC3339(Date date) {

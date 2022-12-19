@@ -20,6 +20,7 @@ public final class TestUtils {
 
     public static final String DEFAULT_NAME = "Full Name";
     public static final String DEFAULT_PIPELINE_NAME = "Pipeline Name";
+    public static final String DEFAULT_SERVER_ID = "serverID";
     public static final String DEFAULT_ID = "1";
     public static final String DEFAULT_PIPELINE_ID = "2";
     public static final String DEFAULT_BUILD_URL = "localhost/build/1";

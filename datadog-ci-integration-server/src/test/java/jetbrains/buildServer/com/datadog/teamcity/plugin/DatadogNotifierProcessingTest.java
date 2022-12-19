@@ -10,6 +10,7 @@ import jetbrains.buildServer.notification.NotificatorRegistry;
 import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.ServerSettings;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +32,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildT
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_TIME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_SERVER_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.IS_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.LOCALHOST;
@@ -67,6 +69,8 @@ public class DatadogNotifierProcessingTest {
     private NotificatorRegistry notificatorRegistryMock;
     @Mock
     private GitInformationExtractor gitInfoExtractorMock;
+    @Mock
+    private ServerSettings serverSettings;
 
     private DatadogNotifier datadogNotifier;
 
@@ -76,8 +80,9 @@ public class DatadogNotifierProcessingTest {
         when(gitInfoExtractorMock.extractGitInfo(any())).thenReturn(Optional.empty());
         when(projectHandlerMock.getProjectParameters(any()))
             .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+        when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogNotifier = new DatadogNotifier(notificatorRegistryMock, buildsManagerMock, chainProcessor);
     }
 
@@ -139,8 +144,8 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "1",
-            "1",
+            "serverID-1",
+            "serverID-1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 
@@ -166,8 +171,8 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "1",
-            "1",
+            "serverID-1",
+            "serverID-1",
             IS_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 
@@ -198,8 +203,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "2",
-                "2",
+                "serverID-2",
+                "serverID-2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -207,9 +212,9 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(jobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "2",
+                "serverID-2",
                 DEFAULT_NAME,
-                "1",
+                "serverID-1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -242,12 +247,12 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(secondJobBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "3",
+            "serverID-3",
             DEFAULT_NAME,
-            "2",
+            "serverID-2",
             JobStatus.SUCCESS,
             DEFAULT_QUEUE_TIME);
-        secondJobWebhook.setDependenciesIds(singletonList("1"));
+        secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -255,8 +260,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
-                "3",
+                "serverID-3",
+                "serverID-3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -264,9 +269,9 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
+                "serverID-3",
                 DEFAULT_NAME,
-                "1",
+                "serverID-1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME),
             secondJobWebhook);
@@ -307,12 +312,12 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(secondJobBuild),
             toRFC3339(pipelineStart),
             toRFC3339(DEFAULT_END_DATE),
-            "3",
+            "serverID-3",
             DEFAULT_NAME,
-            "2",
+            "serverID-2",
             JobStatus.SUCCESS,
             3000);
-        secondJobWebhook.setDependenciesIds(singletonList("1"));
+        secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -320,8 +325,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
-                "3",
+                "serverID-3",
+                "serverID-3",
                 IS_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             secondJobWebhook);
@@ -358,8 +363,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
-                "3",
+                "serverID-3",
+                "serverID-3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -367,9 +372,9 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
+                "serverID-3",
                 DEFAULT_NAME,
-                "1",
+                "serverID-1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -405,8 +410,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
-                "3",
+                "serverID-3",
+                "serverID-3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -414,9 +419,9 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "3",
+                "serverID-3",
                 DEFAULT_NAME,
-                "1",
+                "serverID-1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -452,8 +457,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "2",
-                "2",
+                "serverID-2",
+                "serverID-2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -461,9 +466,9 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(jobBuild),
                 toRFC3339(jobStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "2",
+                "serverID-2",
                 DEFAULT_NAME,
-                "1",
+                "serverID-1",
                 JobStatus.SUCCESS,
                 2000));
 
@@ -496,9 +501,9 @@ public class DatadogNotifierProcessingTest {
              defaultUrl(jobBuild),
              toRFC3339(DEFAULT_START_DATE),
              toRFC3339(DEFAULT_END_DATE),
-             "2",
+             "serverID-2",
              DEFAULT_NAME,
-             "1",
+             "serverID-1",
              JobStatus.ERROR,
              DEFAULT_QUEUE_TIME);
 
@@ -511,8 +516,8 @@ public class DatadogNotifierProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "2",
-                "2",
+                "serverID-2",
+                "serverID-2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             jobWebhook);
@@ -545,8 +550,8 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "2",
-            "2",
+            "serverID-2",
+            "serverID-2",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
         expectedPipelineWebhook.setGitInfo(defaultGitInfo());
@@ -556,9 +561,9 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(jobBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "2",
+            "serverID-2",
             DEFAULT_NAME,
-            "1",
+            "serverID-1",
             JobStatus.SUCCESS,
             DEFAULT_QUEUE_TIME);
         expectedJobWebhook.setGitInfo(defaultGitInfo());
@@ -586,8 +591,8 @@ public class DatadogNotifierProcessingTest {
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "1",
-            "1",
+            "serverID-1",
+            "serverID-1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 

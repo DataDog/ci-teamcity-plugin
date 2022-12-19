@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
 
 @Component
@@ -58,7 +57,7 @@ public class DatadogNotifier extends NotificatorAdapter {
     @VisibleForTesting
     protected void onFinishedBuild(SBuild build) {
         if (!isLastCompositeBuild(build)) {
-            LOG.info(format("Ignoring build with id '%s' and name '%s'", buildID(build), buildName(build)));
+            LOG.info(format("Ignoring build with id '%s' and name '%s'", build.getBuildId(), buildName(build)));
             return;
         }
 

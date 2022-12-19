@@ -26,12 +26,6 @@ public class GitInformationExtractor {
 
     private static final Logger LOG = Logger.getInstance(GitInformationExtractor.class.getName());
 
-    private final ProjectHandler projectHandler;
-
-    public GitInformationExtractor(ProjectHandler projectHandler) {
-        this.projectHandler = projectHandler;
-    }
-
     public Optional<GitInfo> extractGitInfo(SBuild build) {
         Optional<BuildRevision> revisionOptional = build.getRevisions().stream()
             .filter(this::hasGitRoot)
@@ -51,8 +45,8 @@ public class GitInformationExtractor {
         }
 
         UsernameStyle usernameStyle = getUsernameStyle(vcsRootInstance);
-        GitUserInfo committerInfo = extractCommitterInfo(build, gitModification, usernameStyle);
-        GitUserInfo authorInfo = tryExtractAuthorInfo(build, gitModification, usernameStyle)
+        GitUserInfo committerInfo = extractCommitterInfo(gitModification, usernameStyle);
+        GitUserInfo authorInfo = tryExtractAuthorInfo(gitModification, usernameStyle)
             .orElse(committerInfo);
 
         return Optional.of(new GitInfo()
@@ -82,22 +76,22 @@ public class GitInformationExtractor {
         return UsernameStyle.valueOf(usernameStyle);
     }
 
-    private GitUserInfo extractCommitterInfo(SBuild build, VcsModificationEx change, UsernameStyle usernameStyle) {
+    private GitUserInfo extractCommitterInfo(VcsModificationEx change, UsernameStyle usernameStyle) {
         String committerUsername = change.getCommiterName();
-        return parseUsername(build, committerUsername, usernameStyle);
+        return parseUsername(committerUsername, usernameStyle);
     }
 
-    private Optional<GitUserInfo> tryExtractAuthorInfo(SBuild build, SVcsModification change, UsernameStyle usernameStyle) {
+    private Optional<GitUserInfo> tryExtractAuthorInfo(SVcsModification change, UsernameStyle usernameStyle) {
         String authorUsername = change.getUserName();
         if (authorUsername == null || authorUsername.isEmpty()) {
             return Optional.empty();
         }
 
-        return Optional.of(parseUsername(build, authorUsername, usernameStyle));
+        return Optional.of(parseUsername(authorUsername, usernameStyle));
     }
 
     @Nonnull
-    private GitUserInfo parseUsername(SBuild build, String username, UsernameStyle usernameStyle) {
+    private GitUserInfo parseUsername(String username, UsernameStyle usernameStyle) {
         switch (usernameStyle) {
             case FULL:
                 return parseFullStyle(username);
@@ -106,7 +100,7 @@ public class GitInformationExtractor {
             case NAME:
             case USERID:
                 // These styles do not have any email information, so we will generate one
-                return parseStylesWithoutEmail(username, build);
+                return parseStylesWithoutEmail(username);
             default:
                 throw new IllegalArgumentException("Cannot recognize username style: " + usernameStyle);
         }
@@ -140,12 +134,10 @@ public class GitInformationExtractor {
     }
 
     @Nonnull
-    private GitUserInfo parseStylesWithoutEmail(String username, SBuild build) {
-        // In these cases we generate an email for the user, based on the email domain project parameter
-        // or just using "TeamCity" if nothing is specified
-        String emailDomain = projectHandler.getEmailDomainParameter(build).orElse(DEFAULT_EMAIL_DOMAIN);
+    private GitUserInfo parseStylesWithoutEmail(String username) {
+        // In these cases we generate an email for the user by adding @teamcity
         String emailUsername = username.replaceAll("\\s", "").toLowerCase();
-        return new GitUserInfo(username, emailUsername + "@" + emailDomain);
+        return new GitUserInfo(username, emailUsername + "@teamcity");
     }
 
     private String getBranch(SBuild build) {

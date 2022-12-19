@@ -16,10 +16,6 @@ public class ProjectHandler {
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
 
-    // Clients are able to specify the email domain to be used if they are
-    // using the username styles not containing the email (USERID and NAME)
-    protected static final String EMAIL_DOMAIN_PARAM = "datadog.ci.email.domain";
-
     private final ProjectManager projectManager;
 
     public ProjectHandler(ProjectManager projectManager) {
@@ -45,16 +41,6 @@ public class ProjectHandler {
         return (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
-    }
-
-    public Optional<String> getEmailDomainParameter(SBuild build) {
-        ProjectEx project = getProject(build);
-        String emailDomain = project.getParameterValue(EMAIL_DOMAIN_PARAM);
-        if (emailDomain == null || emailDomain.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(emailDomain);
     }
 
     public static class ProjectParameters {

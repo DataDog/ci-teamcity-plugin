@@ -45,10 +45,6 @@ public final class BuildUtils {
         return String.valueOf(build.getBuildId());
     }
 
-    public static boolean hasChanges(SBuild build) {
-        return !build.getContainingChanges().isEmpty();
-    }
-
     public static String buildName(SBuild build) {
         return build.getFullName();
     }

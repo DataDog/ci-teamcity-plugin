@@ -73,18 +73,20 @@ public class BuildChainProcessor {
      * composite build and <em>N</em> webhooks for the eligible job builds in the chain.
      */
     private List<Webhook> createWebhooks(SBuild pipelineBuild) {
-        Optional<GitInfo> gitInformation = gitInformationExtractor.extractGitInfo(pipelineBuild);
-        PipelineWebhook pipelineWebhook = createPipelineWebhook(pipelineBuild, gitInformation);
-
+        PipelineWebhook pipelineWebhook = createPipelineWebhook(pipelineBuild);
         List<Webhook> webhooks = new ArrayList<>(singletonList(pipelineWebhook));
-        webhooks.addAll(createJobWebhooks(pipelineBuild, gitInformation));
+        webhooks.addAll(createJobWebhooks(pipelineBuild));
+
+        // Adding git information to all webhooks
+        Optional<GitInfo> gitInfoOptional = gitInformationExtractor.extractGitInfo(pipelineBuild);
+        gitInfoOptional.ifPresent(gitInfo -> webhooks.forEach(webhook -> webhook.setGitInfo(gitInfo)));
 
         return webhooks;
     }
 
-    private PipelineWebhook createPipelineWebhook(SBuild pipelineBuild, Optional<GitInfo> gitInformation) {
+    private PipelineWebhook createPipelineWebhook(SBuild pipelineBuild) {
         PipelineWebhook pipelineWebhook = new PipelineWebhook(
-            pipelineBuild.getFullName(),
+            buildName(pipelineBuild),
             buildURL(pipelineBuild),
             toRFC3339(pipelineBuild.getStartDate()),
             toRFC3339(pipelineBuild.getFinishDate()),
@@ -93,7 +95,6 @@ public class BuildChainProcessor {
             isPartialRetry(pipelineBuild),
             pipelineBuild.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR);
 
-        gitInformation.ifPresent(pipelineWebhook::setGitInfo);
         if (!pipelineBuild.getTags().isEmpty()) {
             pipelineWebhook.setTags(pipelineBuild.getTags());
         }
@@ -101,7 +102,7 @@ public class BuildChainProcessor {
         return pipelineWebhook;
     }
 
-    private List<JobWebhook> createJobWebhooks(SBuild pipelineBuild, Optional<GitInfo> gitInformation) {
+    private List<JobWebhook> createJobWebhooks(SBuild pipelineBuild) {
         String pipelineName = buildName(pipelineBuild);
         String pipelineID = buildID(pipelineBuild);
         Date pipelineStartWithOffset = pipelineStartWithOffset(pipelineBuild);
@@ -110,7 +111,7 @@ public class BuildChainProcessor {
             .map(BuildPromotion::getAssociatedBuild)
             .filter(Objects::nonNull)
             .filter(build -> !shouldBeIgnored(build, pipelineStartWithOffset))
-            .map(job -> createJobWebhook(job, pipelineName, pipelineID, gitInformation))
+            .map(job -> createJobWebhook(job, pipelineName, pipelineID))
             .collect(toList());
     }
 
@@ -122,9 +123,9 @@ public class BuildChainProcessor {
             jobBuild.getStartDate().before(pipelineStart);
     }
 
-    private JobWebhook createJobWebhook(SBuild jobBuild, String pipelineName, String pipelineID, Optional<GitInfo> gitInformation) {
+    private JobWebhook createJobWebhook(SBuild jobBuild, String pipelineName, String pipelineID) {
         JobWebhook jobWebhook = new JobWebhook(
-                jobBuild.getFullName(),
+                buildName(jobBuild),
                 buildURL(jobBuild),
                 toRFC3339(jobBuild.getStartDate()),
                 toRFC3339(jobBuild.getFinishDate()),
@@ -144,7 +145,6 @@ public class BuildChainProcessor {
 
         getHostInfo(jobBuild).ifPresent(jobWebhook::setHostInfo);
         getErrorInfo(jobBuild).ifPresent(jobWebhook::setErrorInfo);
-        gitInformation.ifPresent(jobWebhook::setGitInfo);
         return jobWebhook;
     }
 

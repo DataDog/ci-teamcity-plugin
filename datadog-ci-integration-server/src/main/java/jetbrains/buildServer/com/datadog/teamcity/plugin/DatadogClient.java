@@ -25,7 +25,6 @@ public class DatadogClient {
     private static final String TEAMCITY_PROVIDER = "teamcity";
     private static final String WEBHOOK_INTAKE_BASE_URL = "https://webhook-intake.%s/api/v2/webhook";
 
-    // Headers
     protected static final String DD_API_KEY_HEADER = "DD-API-KEY";
     protected static final String DD_CI_PROVIDER_HEADER = "DD-CI-PROVIDER-NAME";
 

@@ -60,7 +60,7 @@ public class JobWebhook extends Webhook {
         this.queueTimeMs = queueTimeMs;
     }
 
-    public void setDependenciesIds(@Nullable List<String> dependenciesIds) {
+    public void setDependenciesIds(@Nonnull List<String> dependenciesIds) {
         this.dependenciesIds = dependenciesIds;
     }
 
@@ -117,12 +117,8 @@ public class JobWebhook extends Webhook {
     }
 
     public enum JobStatus {
-        SUCCESS, ERROR;
-
-        @JsonValue
-        public String toLowerCase() {
-            return toString().toLowerCase();
-        }
+        @JsonProperty("success") SUCCESS,
+        @JsonProperty("error") ERROR
     }
 
     public static class HostInfo {
@@ -206,12 +202,8 @@ public class JobWebhook extends Webhook {
         }
 
         public enum ErrorDomain {
-            PROVIDER, USER;
-
-            @JsonValue
-            public String toLowerCase() {
-                return toString().toLowerCase();
-            }
+            @JsonProperty("provider") PROVIDER,
+            @JsonProperty("user") USER
         }
     }
 

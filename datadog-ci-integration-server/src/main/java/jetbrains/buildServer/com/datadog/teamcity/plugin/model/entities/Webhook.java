@@ -45,11 +45,11 @@ public abstract class Webhook {
         this.end = end;
     }
 
-    public void setGitInfo(@Nullable GitInfo gitInfo) {
+    public void setGitInfo(@Nonnull GitInfo gitInfo) {
         this.gitInfo = gitInfo;
     }
 
-    public void setTags(@Nullable List<String> tags) {
+    public void setTags(@Nonnull List<String> tags) {
         this.tags = tags;
     }
 

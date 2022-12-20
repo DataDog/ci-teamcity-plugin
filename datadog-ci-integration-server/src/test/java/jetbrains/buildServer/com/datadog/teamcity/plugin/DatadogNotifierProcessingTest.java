@@ -145,7 +145,7 @@ public class DatadogNotifierProcessingTest {
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
             "serverID-1",
-            "serverID-1",
+            "1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 
@@ -172,7 +172,7 @@ public class DatadogNotifierProcessingTest {
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
             "serverID-1",
-            "serverID-1",
+            "1",
             IS_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 
@@ -204,7 +204,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
-                "serverID-2",
+                "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -261,7 +261,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
-                "serverID-3",
+                "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -326,7 +326,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
-                "serverID-3",
+                "3",
                 IS_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             secondJobWebhook);
@@ -364,7 +364,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
-                "serverID-3",
+                "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -411,7 +411,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
-                "serverID-3",
+                "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -458,7 +458,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
-                "serverID-2",
+                "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             new JobWebhook(
@@ -517,7 +517,7 @@ public class DatadogNotifierProcessingTest {
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
-                "serverID-2",
+                "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
             jobWebhook);
@@ -551,7 +551,7 @@ public class DatadogNotifierProcessingTest {
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
             "serverID-2",
-            "serverID-2",
+            "2",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
         expectedPipelineWebhook.setGitInfo(defaultGitInfo());
@@ -592,7 +592,7 @@ public class DatadogNotifierProcessingTest {
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
             "serverID-1",
-            "serverID-1",
+            "1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
 

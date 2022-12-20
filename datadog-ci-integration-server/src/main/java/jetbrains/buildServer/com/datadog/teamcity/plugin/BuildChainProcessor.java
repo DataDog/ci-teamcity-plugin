@@ -92,7 +92,7 @@ public class BuildChainProcessor {
             toRFC3339(pipelineBuild.getStartDate()),
             toRFC3339(pipelineBuild.getFinishDate()),
             buildID(pipelineBuild),
-            buildID(pipelineBuild),
+            String.valueOf(pipelineBuild.getBuildId()),
             isPartialRetry(pipelineBuild),
             pipelineBuild.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR);
 

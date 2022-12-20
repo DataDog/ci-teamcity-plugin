@@ -35,16 +35,7 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 public class GitInformationExtractorTest {
 
-    @Mock
-    private ProjectHandler projectHandlerMock;
-
-    private GitInformationExtractor gitInfoExtractor;
-
-    @Before
-    public void setUp() {
-        when(projectHandlerMock.getEmailDomainParameter(any())).thenReturn(Optional.empty());
-        gitInfoExtractor = new GitInformationExtractor(projectHandlerMock);
-    }
+    private final GitInformationExtractor gitInfoExtractor = new GitInformationExtractor();
 
     @Test
     public void shouldReturnEmptyIfNoRevisionIsFound() {
@@ -137,8 +128,8 @@ public class GitInformationExtractorTest {
         GitInfo expectedGitInfo = defaultGitInfo()
             .withAuthorName("John Doe")
             .withCommitterName("John Doe")
-            .withAuthorEmail("johndoe@" + DEFAULT_EMAIL_DOMAIN)
-            .withCommitterEmail("johndoe@" + DEFAULT_EMAIL_DOMAIN);
+            .withAuthorEmail("johndoe@teamcity")
+            .withCommitterEmail("johndoe@teamcity");
 
         assertThat(gitInfoOptional.get()).isEqualTo(expectedGitInfo);
     }
@@ -159,33 +150,8 @@ public class GitInformationExtractorTest {
         GitInfo expectedGitInfo = defaultGitInfo()
             .withAuthorName("johndoe")
             .withCommitterName("johndoe")
-            .withAuthorEmail("johndoe@" + DEFAULT_EMAIL_DOMAIN)
-            .withCommitterEmail("johndoe@" + DEFAULT_EMAIL_DOMAIN);
-
-        assertThat(gitInfoOptional.get()).isEqualTo(expectedGitInfo);
-    }
-
-    @Test
-    public void shouldUseProvidedEmailDomainForUserIDStyle() {
-        // Setup
-        String committerUsername = "johndoe";
-        SBuild build = new MockBuild.Builder(1, PIPELINE)
-            .addRevision(GIT_VCS, USERID.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
-            .build();
-
-        when(projectHandlerMock.getEmailDomainParameter(build))
-            .thenReturn(Optional.of("datadog.com"));
-
-        // When
-        Optional<GitInfo> gitInfoOptional = gitInfoExtractor.extractGitInfo(build);
-
-        // Then: the provided email domain should be used
-        assertThat(gitInfoOptional).isNotEmpty();
-        GitInfo expectedGitInfo = defaultGitInfo()
-            .withAuthorName("johndoe")
-            .withCommitterName("johndoe")
-            .withAuthorEmail("johndoe@datadog.com")
-            .withCommitterEmail("johndoe@datadog.com");
+            .withAuthorEmail("johndoe@teamcity")
+            .withCommitterEmail("johndoe@teamcity");
 
         assertThat(gitInfoOptional.get()).isEqualTo(expectedGitInfo);
     }

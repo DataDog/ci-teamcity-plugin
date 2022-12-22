@@ -16,6 +16,7 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebho
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook.PipelineStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
+import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
@@ -101,13 +102,26 @@ public class BuildChainProcessor {
             buildID(pipelineBuild),
             String.valueOf(pipelineBuild.getBuildId()),
             isPartialRetry(pipelineBuild),
-            pipelineBuild.getBuildStatus().isSuccessful() ? PipelineStatus.SUCCESS : PipelineStatus.ERROR);
+            getPipelineStatus(pipelineBuild));
 
         if (!pipelineBuild.getTags().isEmpty()) {
             pipelineWebhook.setTags(pipelineBuild.getTags());
         }
 
         return pipelineWebhook;
+    }
+
+    private PipelineStatus getPipelineStatus(SBuild pipelineBuild) {
+        Status buildStatus = pipelineBuild.getBuildStatus();
+        if (buildStatus.isSuccessful()) {
+            return PipelineStatus.SUCCESS;
+        } else if (buildStatus.isFailed()) {
+            return PipelineStatus.ERROR;
+        } else if (pipelineBuild.getCanceledInfo() != null) {
+            return PipelineStatus.CANCELED;
+        }
+
+        throw new IllegalArgumentException("Pipeline status not recognized: " + buildStatus);
     }
 
     private List<JobWebhook> createJobWebhooks(SBuild pipelineBuild) {
@@ -126,6 +140,7 @@ public class BuildChainProcessor {
     private boolean shouldBeIgnored(SBuild jobBuild, Date pipelineStart) {
         return jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
             jobBuild.isPersonal() ||
+            jobBuild.getFinishDate() == null || // This can happen in case the build is canceled before it starts
             // For partial retries, we ignore jobs started before the pipeline,
             // as they are reused builds which were already sent by previous webhooks
             jobBuild.getStartDate().before(pipelineStart);
@@ -140,7 +155,7 @@ public class BuildChainProcessor {
                 pipelineID,
                 pipelineName,
                 buildID(jobBuild),
-                jobBuild.getBuildStatus().isSuccessful() ? JobStatus.SUCCESS : JobStatus.ERROR,
+                getJobStatus(jobBuild),
                 queueTimeMs(jobBuild));
 
         if (!jobBuild.getBuildPromotion().getDependencies().isEmpty()) {
@@ -154,6 +169,19 @@ public class BuildChainProcessor {
         getHostInfo(jobBuild).ifPresent(jobWebhook::setHostInfo);
         getErrorInfo(jobBuild).ifPresent(jobWebhook::setErrorInfo);
         return jobWebhook;
+    }
+
+    private JobStatus getJobStatus(SBuild jobBuild) {
+        Status buildStatus = jobBuild.getBuildStatus();
+        if (buildStatus.isSuccessful()) {
+            return JobStatus.SUCCESS;
+        } else if (buildStatus.isFailed()) {
+            return JobStatus.ERROR;
+        } else if (jobBuild.getCanceledInfo() != null) {
+            return JobStatus.CANCELED;
+        }
+
+        throw new IllegalArgumentException("Job status not recognized: " + buildStatus);
     }
 
     private Optional<HostInfo> getHostInfo(SBuild build) {

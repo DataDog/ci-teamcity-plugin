@@ -7,62 +7,48 @@
 
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.notification.NotificatorAdapter;
-import jetbrains.buildServer.notification.NotificatorRegistry;
+import jetbrains.buildServer.serverSide.BuildServerAdapter;
+import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SRunningBuild;
-import jetbrains.buildServer.users.SUser;
+import jetbrains.buildServer.util.EventDispatcher;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
+import javax.annotation.Nonnull;
 
 import static java.lang.String.format;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
 
 @Component
-public class DatadogNotifier extends NotificatorAdapter {
+public class DatadogServerAdapter extends BuildServerAdapter {
 
-    private static final String NOTIFIER_TYPE = "DATADOG_NOTIFIER";
-    private static final String DISPLAY_NAME = "Datadog Notifier";
-    private static final Logger LOG = Logger.getInstance(DatadogNotifier.class.getName());
+    private static final Logger LOG = Logger.getInstance(DatadogServerAdapter.class.getName());
 
     private final BuildsManager buildsManager;
     private final BuildChainProcessor buildChainProcessor;
 
-    public DatadogNotifier(NotificatorRegistry notificatorRegistry,
-                           BuildsManager buildsManager,
-                           BuildChainProcessor buildChainProcessor) {
+    public DatadogServerAdapter(EventDispatcher<BuildServerListener> eventListener,
+                                BuildsManager buildsManager,
+                                BuildChainProcessor buildChainProcessor) {
         this.buildsManager = buildsManager;
         this.buildChainProcessor = buildChainProcessor;
 
-        notificatorRegistry.register(this);
+        eventListener.addListener(this);
     }
 
     @Override
-    public String getNotificatorType() {
-        return NOTIFIER_TYPE;
+    public void buildFinished(@Nonnull SRunningBuild build) {
+        onBuildFinished(build);
     }
 
     @Override
-    public String getDisplayName() {
-        return DISPLAY_NAME;
+    public void buildInterrupted(SRunningBuild build) {
+        onBuildFinished(build);
     }
 
-    @Override
-    public void notifyBuildSuccessful(SRunningBuild build, Set<SUser> users) {
-        onFinishedBuild(build);
-    }
-
-    @Override
-    public void notifyBuildFailed(SRunningBuild build, Set<SUser> users) {
-        onFinishedBuild(build);
-    }
-
-    @VisibleForTesting
-    protected void onFinishedBuild(SBuild build) {
+    private void onBuildFinished(SRunningBuild build) {
         if (!isLastCompositeBuild(build)) {
             LOG.info(format("Ignoring build with id '%s' and name '%s'", build.getBuildId(), buildName(build)));
             return;

@@ -1,0 +1,7 @@
+Component,Origin,License,Copyright
+mockito-all,https://github.com/mockito/mockito,MIT,Mockito contributors
+assertj-core,https://github.com/assertj/assertj,Apache-2.0,Joel Costigliola
+TeamCity server,Jetbrains,Apache-2.0,JetBrains s.r.o
+TeamCity server-api,Jetbrains,Apache-2.0,JetBrains s.r.o
+TeamCity server-web-api,Jetbrains,Apache-2.0,JetBrains s.r.o
+TeamCity tests-support,Jetbrains,Apache-2.0,JetBrains s.r.o

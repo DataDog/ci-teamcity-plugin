@@ -125,7 +125,8 @@ public class JobWebhook extends Webhook {
 
     public enum JobStatus {
         @JsonProperty("success") SUCCESS,
-        @JsonProperty("error") ERROR
+        @JsonProperty("error") ERROR,
+        @JsonProperty("canceled") CANCELED
     }
 
     public static class HostInfo {

@@ -16,8 +16,10 @@ import jetbrains.buildServer.serverSide.BuildPromotionOwner;
 import jetbrains.buildServer.serverSide.BuildRevision;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildAgent;
+import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.TriggeredBy;
 import jetbrains.buildServer.serverSide.dependency.BuildDependency;
+import jetbrains.buildServer.serverSide.userChanges.CanceledInfo;
 import jetbrains.buildServer.vcs.SVcsModification;
 import jetbrains.buildServer.vcs.VcsRootInstanceEx;
 import jetbrains.buildServer.vcs.impl.VcsModificationEx;
@@ -56,9 +58,9 @@ import static org.mockito.Mockito.when;
 // to create a mock build, returning default parameters unless overridden during creation.
 public class MockBuild {
 
-    public static SBuild fromBuilder(Builder b) {
+    public static SRunningBuild fromBuilder(Builder b) {
         // Build information mocks
-        SBuild buildMock = mock(SBuild.class);
+        SRunningBuild buildMock = mock(SRunningBuild.class);
         when(buildMock.getBuildId()).thenReturn(b.id);
         when(buildMock.getFullName()).thenReturn(b.fullName);
         when(buildMock.getBuildStatus()).thenReturn(b.status);
@@ -76,6 +78,7 @@ public class MockBuild {
         when(buildMock.isInternalError()).thenReturn(true);
         when(buildMock.getTriggeredBy()).thenReturn(b.triggeredBy);
         when(buildMock.getAgent()).thenReturn(b.agentMock);
+        when(buildMock.getCanceledInfo()).thenReturn(b.canceledInfo);
 
         // Build promotion mocks
         BuildPromotion buildPromotionMock = mock(BuildPromotion.class);
@@ -113,6 +116,7 @@ public class MockBuild {
         private final List<BuildRevision> revisions = new ArrayList<>();
         private final TriggeredBy triggeredBy = mock(TriggeredBy.class);
         private SBuildAgent agentMock;
+        private CanceledInfo canceledInfo;
 
         // Build Promotion customizable info
         private int dependentsNum;
@@ -173,6 +177,14 @@ public class MockBuild {
 
         public Builder withQueueDate(Date queueDate) {
             this.queueDate = queueDate;
+            return this;
+        }
+
+        public Builder withCanceledInfo(String comment) {
+            CanceledInfo canceledInfoMock = mock(CanceledInfo.class);
+            when(canceledInfoMock.getComment()).thenReturn(comment);
+            this.canceledInfo = canceledInfoMock;
+            this.status = Status.UNKNOWN;
             return this;
         }
 
@@ -249,7 +261,7 @@ public class MockBuild {
             return this;
         }
 
-        public SBuild build() {
+        public SRunningBuild build() {
             return fromBuilder(this);
         }
     }

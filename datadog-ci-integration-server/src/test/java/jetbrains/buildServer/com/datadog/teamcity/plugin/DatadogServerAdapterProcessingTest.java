@@ -13,11 +13,12 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebho
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook.PipelineStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
-import jetbrains.buildServer.notification.NotificatorRegistry;
+import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.BuildsManager;
-import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.ServerSettings;
+import jetbrains.buildServer.util.EventDispatcher;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,7 +60,7 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
-public class DatadogNotifierProcessingTest {
+public class DatadogServerAdapterProcessingTest {
 
     @Captor
     private ArgumentCaptor<List<Webhook>> webhooksCaptor;
@@ -73,13 +74,13 @@ public class DatadogNotifierProcessingTest {
     @Mock
     private BuildsManager buildsManagerMock;
     @Mock
-    private NotificatorRegistry notificatorRegistryMock;
+    private EventDispatcher<BuildServerListener> eventListener;
     @Mock
     private GitInformationExtractor gitInfoExtractorMock;
     @Mock
     private ServerSettings serverSettings;
 
-    private DatadogNotifier datadogNotifier;
+    private DatadogServerAdapter datadogServerAdapter;
 
     @Before
     public void setUp() {
@@ -90,34 +91,34 @@ public class DatadogNotifierProcessingTest {
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogNotifier = new DatadogNotifier(notificatorRegistryMock, buildsManagerMock, chainProcessor);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor);
     }
 
     @Test
     public void shouldIgnoreJobBuilds() {
-        SBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
 
-        datadogNotifier.onFinishedBuild(jobBuild);
+        datadogServerAdapter.buildFinished(jobBuild);
 
         verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
     }
 
     @Test
     public void shouldIgnorePersonalBuilds() {
-        SBuild personalBuild = new MockBuild.Builder(1, PIPELINE).isPersonal().build();
+        SRunningBuild personalBuild = new MockBuild.Builder(1, PIPELINE).isPersonal().build();
 
-        datadogNotifier.onFinishedBuild(personalBuild);
+        datadogServerAdapter.buildFinished(personalBuild);
 
         verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
     }
 
     @Test
     public void shouldIgnoreCompositeBuildsWithDependents() {
-        SBuild compositeBuildWithDependents = new MockBuild.Builder(1, PIPELINE)
+        SRunningBuild compositeBuildWithDependents = new MockBuild.Builder(1, PIPELINE)
             .withNumOfDependents(2)
             .build();
 
-        datadogNotifier.onFinishedBuild(compositeBuildWithDependents);
+        datadogServerAdapter.buildFinished(compositeBuildWithDependents);
 
         verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
     }
@@ -125,10 +126,10 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldIgnoreBuildIfNotPresentInTeamcityServer() {
         int pipelineID = 1;
-        SBuild pipelineBuild = new MockBuild.Builder(pipelineID, PIPELINE).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(pipelineID, PIPELINE).build();
         when(buildsManagerMock.findBuildInstanceById(pipelineID)).thenReturn(null);
 
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock);
     }
@@ -136,11 +137,11 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldProcessPipelineBuildWithoutDependencies() {
         // Setup
-        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -163,11 +164,11 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldDetectAutomaticRetries() {
         // Setup
-        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).isTriggeredByRetry().build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).isTriggeredByRetry().build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -190,15 +191,15 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldProcessPipelineBuildWithOneDependency() {
         // Setup: [job -> pipeline]
-        SBuild jobBuild = new MockBuild.Builder(1, JOB).build();
-        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
             .build();
 
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -232,18 +233,18 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldProcessPipelineBuildWithMultipleDependencies() {
         // Setup: [firstJob -> secondJob -> pipeline]
-        SBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
-        SBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withDependencies(singletonList(firstJobBuild))
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
             .withAllDependencies(Arrays.asList(firstJobBuild, secondJobBuild))
             .build();
 
         when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -292,14 +293,14 @@ public class DatadogNotifierProcessingTest {
         // Setup: [firstJob (reused) -> secondJob -> pipeline]
         Date firstJobStart = new Date(1000);
         Date pipelineStart = new Date(5000);
-        SBuild firstJobBuild = new MockBuild.Builder(1, JOB)
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB)
             .withStartDate(firstJobStart)
             .build();
-        SBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+        SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withStartDate(pipelineStart)
             .withDependencies(singletonList(firstJobBuild))
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
             .withStartDate(pipelineStart)
             .withAllDependencies(Arrays.asList(firstJobBuild, secondJobBuild))
             .build();
@@ -307,7 +308,7 @@ public class DatadogNotifierProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -345,19 +346,19 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldNotSendWebhooksForMiddleCompositeBuilds() {
         // Setup: [firstJob -> secondJob (composite) -> pipeline]
-        SBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
-        SBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withAllDependencies(singletonList(firstJobBuild))
             .isComposite()
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
             .withAllDependencies(Arrays.asList(firstJobBuild, secondJobBuild))
             .build();
 
         when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -392,19 +393,19 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldNotSendWebhooksForPersonalBuilds() {
         // Setup: [firstJob -> secondJob (personal) -> pipeline]
-        SBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
-        SBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withAllDependencies(singletonList(firstJobBuild))
             .isPersonal()
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
             .withAllDependencies(Arrays.asList(firstJobBuild, secondJobBuild))
             .build();
 
         when(buildsManagerMock.findBuildInstanceById(3)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -441,10 +442,10 @@ public class DatadogNotifierProcessingTest {
         // Setup: [job -> pipeline]. The job started before the pipeline, but it is within the offset of 3s
         Date jobStart = new Date(4000);
         Date pipelineStart = new Date(5000);
-        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
             .withStartDate(jobStart)
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withStartDate(pipelineStart)
             .withAllDependencies(singletonList(jobBuild))
             .build();
@@ -452,7 +453,7 @@ public class DatadogNotifierProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -486,18 +487,18 @@ public class DatadogNotifierProcessingTest {
      @Test
     public void shouldSendJobWebhookWithAdditionalInformation() {
         // Setup: [job -> pipeline]
-        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
             .addNodeInformation()
             .withFailureReason(TC_FAILED_TESTS_TYPE)
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
             .build();
 
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -536,9 +537,9 @@ public class DatadogNotifierProcessingTest {
     @Test
     public void shouldSendWebhooksWithGitInformation() {
         // Setup: [job -> pipeline]
-        SBuild jobBuild = new MockBuild.Builder(1, JOB)
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
             .build();
-        SBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
             .build();
 
@@ -546,7 +547,7 @@ public class DatadogNotifierProcessingTest {
         when(gitInfoExtractorMock.extractGitInfo(pipelineBuild)).thenReturn(Optional.of(defaultGitInfo()));
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -583,11 +584,11 @@ public class DatadogNotifierProcessingTest {
     public void shouldSendWebhookWithTags() {
         // Setup
         List<String> tags = Arrays.asList("mytag1:myvalue1", "mytag2:myvalue2");
-        SBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).withTags(tags).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).withTags(tags).build();
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
 
         // When
-        datadogNotifier.onFinishedBuild(pipelineBuild);
+        datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
         verify(datadogClientMock, times(1))
@@ -607,4 +608,37 @@ public class DatadogNotifierProcessingTest {
         assertThat(webhooksCaptor.getValue()).containsExactly(expectedWebhook);
     }
 
+    @Test
+    public void shouldDetectCanceledPipeline() {
+        // Setup: [job -> pipeline]
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .withEndDate(null)
+            .build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withCanceledInfo("canceled")
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        // When
+        datadogServerAdapter.buildInterrupted(pipelineBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        // Job webhook should not be sent as it has an invalid end date
+        PipelineWebhook expectedWebhook = new PipelineWebhook(
+            DEFAULT_NAME,
+            defaultUrl(pipelineBuild),
+            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_END_DATE),
+            "serverID-2",
+            "2",
+            NO_PARTIAL_RETRY,
+            PipelineStatus.CANCELED);
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).containsExactly(expectedWebhook);
+    }
 }

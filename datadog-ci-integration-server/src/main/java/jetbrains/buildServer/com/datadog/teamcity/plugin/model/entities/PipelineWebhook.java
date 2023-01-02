@@ -91,7 +91,8 @@ public class PipelineWebhook extends Webhook {
 
     public enum PipelineStatus {
         @JsonProperty("success") SUCCESS,
-        @JsonProperty("error") ERROR
+        @JsonProperty("error") ERROR,
+        @JsonProperty("canceled") CANCELED
     }
 
 }

@@ -81,7 +81,7 @@ requests must:
 - Have a stated goal and detailed description of the changes made;
 - Include thorough test coverage and documentation, where applicable;
 - Pass all tests on CI;
-- Receive at least one approval from a project member of the Datadog Ci Visibility team.
+- Receive at least one approval from a project member of the Datadog CI Visibility team.
 
 Make sure that your code is clean and readable, and that your commits are small and
 atomic, with a proper commit message.

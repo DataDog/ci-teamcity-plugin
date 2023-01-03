@@ -13,15 +13,7 @@ generated in the 'target' directory.
 mvn package
 ```
 
-# General Overview
-The Datadog CI Integration plugin is implemented as a [TeamCity Server Adapter](https://javadoc.jetbrains.net/teamcity/openapi/current/jetbrains/buildServer/serverSide/BuildServerAdapter.html). When it receives the final 
-composite build of a build chain, the plugin does the following steps:
-1. Creates a pipeline webhook for the whole build chain.
-2. Creates _N_ job webhooks, one for each eligible build in the chain. 
-3. Sends these webhooks to the Datadog webhooks intake.
+# Usage
 
-In order to correctly send webhooks to Datadog, the plugin requires two project-level parameters to be present:
-- `datadog.ci.api.key`: That represents the client Datadog API Key.
-- `datadog.ci.site`: That represents one of Datadog's datacenters. 
+The plugin needs to be configured before it can be used. Please refer to the 'Getting Started' guide for TeamCity for the Datadog CI Visibility product.
 
-More information can be found on the 'Getting Started' guide for TeamCity for the Datadog CI Visibility product.

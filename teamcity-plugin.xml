@@ -4,7 +4,7 @@
     <name>datadog-ci-integration</name>
     <display-name>Datadog CI Integration</display-name>
     <version>0.0.1</version>
-    <description>Integrates Teamcity with Datadog CI Visibility.</description>
+    <description>Integrates TeamCity with Datadog CI Visibility.</description>
     <vendor>
       <name>Datadog</name>
       <url>https://www.datadoghq.com/</url>

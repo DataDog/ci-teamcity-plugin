@@ -102,8 +102,18 @@ jobs:
 
       - name: Generate Plugin Zip
         run: mvn package
-      - run: mkdir pluginZip && cp target/*.zip pluginZip/datadog-ci-integration-${{ github.ref_name }}.zip
-      - uses: actions/upload-artifact@v3
+      - name: Prepare the plugin for upload
+        run: |
+          PLUGIN_DIR="pluginZip"
+          PLUGIN_FILE="datadog-ci-integration-${{ github.ref_name }}"
+          PLUGIN_PATH="${PLUGIN_DIR}/${PLUGIN_FILE}.zip"
+          mkdir $PLUGIN_DIR
+          cp target/*.zip $PLUGIN_PATH
+          
+          echo "plugin_file=${PLUGIN_FILE}" >> $GITHUB_ENV
+          echo "plugin_path=${PLUGIN_PATH}" >> $GITHUB_ENV
+      - name: Upload the plugin result
+        uses: actions/upload-artifact@v3
         with:
-          name: datadog-ci-integration-${{ github.ref_name }}
-          path: pluginZip/datadog-ci-integration-${{ github.ref_name }}.zip
+          name: ${{env.plugin_file}}
+          path: ${{env.plugin_path}}

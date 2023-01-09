@@ -106,5 +106,5 @@ jobs:
       - run: mkdir pluginZip && cp target/*.zip pluginZip
       - uses: actions/upload-artifact@v3
         with:
-          name: datadog-ci-integration-${{ $github.ref_name }}
+          name: datadog-ci-integration-${{ github.ref_name }}
           path: pluginZip

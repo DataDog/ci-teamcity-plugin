@@ -102,8 +102,8 @@ jobs:
 
       - name: Generate Plugin Zip
         run: mvn package
-      - run: mkdir pluginZip && cp target/*.zip pluginZip
+      - run: mkdir pluginZip && cp target/*.zip pluginZip/datadog-ci-integration-${{ github.ref_name }}.zip
       - uses: actions/upload-artifact@v3
         with:
-          name: datadog-ci-integration-${{ github.ref_name }}.zip
-          path: pluginZip
+          name: datadog-ci-integration-${{ github.ref_name }}
+          path: pluginZip/datadog-ci-integration-${{ github.ref_name }}.zip

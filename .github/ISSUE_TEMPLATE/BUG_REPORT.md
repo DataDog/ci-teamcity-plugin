@@ -20,6 +20,7 @@ Include any error message or stack trace if available.
 
 **Additional context**
 
+- TeamCity server logs
 - TeamCity server version
 - TeamCity build chain configuration
 - An explanation of what might cause the bug and/or how it can be fixed

@@ -22,6 +22,7 @@ public class ProjectHandler {
 
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
+    protected static final String DATADOG_ENABLED_PARAM = "datadog.ci.enabled";
 
     private final ProjectManager projectManager;
 
@@ -41,6 +42,11 @@ public class ProjectHandler {
         }
 
         return new ProjectParameters(apiKey, ddSite);
+    }
+
+    public boolean isPluginEnabled(SBuild build) {
+        String enabled = getProject(build).getParameterValue(DATADOG_ENABLED_PARAM);
+        return Boolean.parseBoolean(enabled);
     }
 
     @Nonnull

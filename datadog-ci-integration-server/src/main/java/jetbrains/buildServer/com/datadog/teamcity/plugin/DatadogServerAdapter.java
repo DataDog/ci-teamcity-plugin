@@ -28,12 +28,15 @@ public class DatadogServerAdapter extends BuildServerAdapter {
 
     private final BuildsManager buildsManager;
     private final BuildChainProcessor buildChainProcessor;
+    private final ProjectHandler projectHandler;
 
     public DatadogServerAdapter(EventDispatcher<BuildServerListener> eventListener,
                                 BuildsManager buildsManager,
-                                BuildChainProcessor buildChainProcessor) {
+                                BuildChainProcessor buildChainProcessor,
+                                ProjectHandler projectHandler) {
         this.buildsManager = buildsManager;
         this.buildChainProcessor = buildChainProcessor;
+        this.projectHandler = projectHandler;
 
         eventListener.addListener(this);
     }
@@ -49,6 +52,10 @@ public class DatadogServerAdapter extends BuildServerAdapter {
     }
 
     private void onBuildFinished(SRunningBuild build) {
+        if (!projectHandler.isPluginEnabled(build)) {
+            return;
+        }
+
         if (!isLastCompositeBuild(build)) {
             LOG.info(format("Ignoring build with id '%s' and name '%s'", build.getBuildId(), buildName(build)));
             return;

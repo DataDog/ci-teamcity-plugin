@@ -86,12 +86,14 @@ public class DatadogServerAdapterProcessingTest {
     public void setUp() {
         when(buildServerMock.getRootUrl()).thenReturn(LOCALHOST);
         when(gitInfoExtractorMock.extractGitInfo(any())).thenReturn(Optional.empty());
-        when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+        when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
+
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
     }
 
     @Test
@@ -100,7 +102,17 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(jobBuild);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
+        verifyZeroInteractions(datadogClientMock, buildServerMock, buildsManagerMock);
+    }
+
+    @Test
+    public void shouldIgnoreBuildForProjectNotEnabled() {
+        when(projectHandlerMock.isPluginEnabled(any())).thenReturn(false);
+        SRunningBuild validBuild = new MockBuild.Builder(1, PIPELINE).build();
+
+        datadogServerAdapter.buildFinished(validBuild);
+
+        verifyZeroInteractions(datadogClientMock, buildServerMock, buildsManagerMock);
     }
 
     @Test
@@ -109,7 +121,7 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(personalBuild);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
+        verifyZeroInteractions(datadogClientMock, buildServerMock, buildsManagerMock);
     }
 
     @Test
@@ -120,7 +132,7 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(compositeBuildWithDependents);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock, buildsManagerMock);
+        verifyZeroInteractions(datadogClientMock, buildServerMock, buildsManagerMock);
     }
 
     @Test
@@ -131,7 +143,7 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(pipelineBuild);
 
-        verifyZeroInteractions(projectHandlerMock, datadogClientMock, buildServerMock);
+        verifyZeroInteractions(datadogClientMock, buildServerMock);
     }
 
     @Test

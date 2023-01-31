@@ -15,5 +15,5 @@ mvn package
 
 # Usage
 
-The plugin needs to be configured before it can be used. Please refer to the 'Getting Started' guide for TeamCity for the Datadog CI Visibility product.
+The plugin needs to be configured before it can be used. Please refer to the [TeamCity Setup](https://docs.datadoghq.com/continuous_integration/pipelines/teamcity/) for the Datadog CI Visibility product.
 

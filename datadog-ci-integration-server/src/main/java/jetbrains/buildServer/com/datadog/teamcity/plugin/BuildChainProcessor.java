@@ -223,6 +223,11 @@ public class BuildChainProcessor {
 
     private String buildURL(SBuild build) {
         long buildID = build.getBuildId();
+        if (this.serverRootURL == null) {
+            LOG.warn(format("Server root URL is invalid. Falling back to a default empty URL (build %s).", buildID));
+            return "";
+        }
+
         try {
             return new URL(this.serverRootURL, format("/build/%s", buildID)).toString();
         } catch (MalformedURLException e) {

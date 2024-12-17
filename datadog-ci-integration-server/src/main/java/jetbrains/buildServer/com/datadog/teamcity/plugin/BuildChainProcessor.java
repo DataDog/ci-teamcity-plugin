@@ -23,6 +23,8 @@ import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.ServerSettings;
 import org.springframework.stereotype.Component;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -55,15 +57,16 @@ public class BuildChainProcessor {
     }};
 
     protected static final String CHECKOUT_DIR_PROPERTY = "system.teamcity.build.checkoutDir";
+    protected static final String DEFAULT_SCHEME = "http";
 
-    private final SBuildServer buildServer;
+    private final URL serverRootURL;
     private final DatadogClient datadogClient;
     private final ProjectHandler projectHandler;
     private final GitInformationExtractor gitInformationExtractor;
     private final ServerSettings serverSettings;
 
     public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
-        this.buildServer = buildServer;
+        this.serverRootURL = buildServerRootURL(buildServer);
         this.datadogClient = datadogClient;
         this.projectHandler = projectHandler;
         this.gitInformationExtractor = gitInformationExtractor;
@@ -215,11 +218,32 @@ public class BuildChainProcessor {
     }
 
     private String buildURL(SBuild build) {
-        return format("%s/build/%s", buildServer.getRootUrl(), build.getBuildId());
+        long buildID = build.getBuildId();
+        try {
+            return new URL(this.serverRootURL, format("/build/%s", buildID)).toString();
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(String.format("Unexpected error when building URL for build %s", buildID), e);
+        }
     }
 
     private String buildID(SBuild build) {
         // Server ID is included to avoid build ID conflicts on different TC instances within the same org
         return format("%s-%s", serverSettings.getServerUUID(), build.getBuildId());
+    }
+
+    private URL buildServerRootURL(SBuildServer buildServer) {
+        String rootURL = buildServer.getRootUrl();
+        try {
+            URL url = new URL(rootURL);
+
+            // If no scheme is present, add the default one
+            if (url.getProtocol() == null || url.getProtocol().isEmpty()) {
+                url = new URL(format("%s://%s", DEFAULT_SCHEME, rootURL));
+            }
+
+            return url;
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(String.format("Unexpected error when parsing the server root URL: %s", rootURL), e);
+        }
     }
 }

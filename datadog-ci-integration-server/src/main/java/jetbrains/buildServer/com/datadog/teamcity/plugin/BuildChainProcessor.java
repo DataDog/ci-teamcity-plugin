@@ -7,6 +7,7 @@
 
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
+import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
@@ -56,8 +57,11 @@ public class BuildChainProcessor {
         put(SNAPSHOT_DEPENDENCY_ERROR_BUILD_PROCEEDS_TYPE, "Snapshot Dependencies Failed");
     }};
 
+
     protected static final String CHECKOUT_DIR_PROPERTY = "system.teamcity.build.checkoutDir";
     protected static final String DEFAULT_SCHEME = "http";
+
+    private static final Logger LOG = Logger.getInstance(BuildChainProcessor.class.getName());
 
     private final URL serverRootURL;
     private final DatadogClient datadogClient;
@@ -222,7 +226,8 @@ public class BuildChainProcessor {
         try {
             return new URL(this.serverRootURL, format("/build/%s", buildID)).toString();
         } catch (MalformedURLException e) {
-            throw new IllegalArgumentException(String.format("Unexpected error when building URL for build %s", buildID), e);
+            LOG.warn(format("Failed to build a valid URL for build %s. Falling back to a default empty URL. Exception: %s", buildID, e.getMessage()), e);
+            return "";
         }
     }
 
@@ -243,7 +248,8 @@ public class BuildChainProcessor {
 
             return url;
         } catch (MalformedURLException e) {
-            throw new RuntimeException(String.format("Unexpected error when parsing the server root URL: %s", rootURL), e);
+            LOG.warn(format("Invalid server root URL: %s. Pipeline and job URLs will not be generated.", rootURL), e);
+            return null;
         }
     }
 }

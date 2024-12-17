@@ -96,12 +96,6 @@ public class DatadogServerAdapterProcessingTest {
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
     }
 
-    @Test(expected = RuntimeException.class)
-    public void shouldThrowExceptionWhenServerHasInvalidRootURL() {
-        when(buildServerMock.getRootUrl()).thenReturn("invalid//url");
-        new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-    }
-
     @Test
     public void shouldIgnoreJobBuilds() {
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
@@ -243,53 +237,6 @@ public class DatadogServerAdapterProcessingTest {
                 "serverID-1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
-
-        List<Webhook> webhooksSent = webhooksCaptor.getValue();
-        assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
-    }
-
-    @Test
-    public void shouldProcessPipelineBuildValidURLs() {
-        // Setup: server root URL with final slash
-        when(buildServerMock.getRootUrl()).thenReturn("http://localhost/");
-
-        // Setup: [job -> pipeline]
-        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
-        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
-                .withAllDependencies(singletonList(jobBuild))
-                .build();
-
-        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
-
-        // When
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
-        datadogServerAdapter.buildFinished(pipelineBuild);
-
-        // Then
-        verify(datadogClientMock, times(1))
-                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
-
-        List<Webhook> expectedWebhooks = Arrays.asList(
-                new PipelineWebhook(
-                        DEFAULT_NAME,
-                        defaultUrl(pipelineBuild),
-                        toRFC3339(DEFAULT_START_DATE),
-                        toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
-                        "2",
-                        NO_PARTIAL_RETRY,
-                        PipelineStatus.SUCCESS),
-                new JobWebhook(
-                        DEFAULT_NAME,
-                        defaultUrl(jobBuild),
-                        toRFC3339(DEFAULT_START_DATE),
-                        toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
-                        DEFAULT_NAME,
-                        "serverID-1",
-                        JobStatus.SUCCESS,
-                        DEFAULT_QUEUE_TIME));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -705,5 +652,100 @@ public class DatadogServerAdapterProcessingTest {
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).containsExactly(expectedWebhook);
+    }
+
+    @Test
+    public void shouldGenerateEmptyURLsWhenInvalid() {
+        // Setup: invalid server root URL
+        when(buildServerMock.getRootUrl()).thenReturn("invalid//url");
+
+        // Setup: [job -> pipeline]
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+                .withAllDependencies(singletonList(jobBuild))
+                .build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        // When
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        datadogServerAdapter.buildFinished(pipelineBuild);
+        String emptyUrl = "";
+
+        // Then
+        verify(datadogClientMock, times(1))
+                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        List<Webhook> expectedWebhooks = Arrays.asList(
+                new PipelineWebhook(
+                        DEFAULT_NAME,
+                        emptyUrl,
+                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_END_DATE),
+                        "serverID-2",
+                        "2",
+                        NO_PARTIAL_RETRY,
+                        PipelineStatus.SUCCESS),
+                new JobWebhook(
+                        DEFAULT_NAME,
+                        emptyUrl,
+                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_END_DATE),
+                        "serverID-2",
+                        DEFAULT_NAME,
+                        "serverID-1",
+                        JobStatus.SUCCESS,
+                        DEFAULT_QUEUE_TIME));
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
+    }
+
+    @Test
+    public void shouldGenerateValidURLs() {
+        // Setup: server root URL with final slash
+        when(buildServerMock.getRootUrl()).thenReturn("http://localhost/");
+
+        // Setup: [job -> pipeline]
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+                .withAllDependencies(singletonList(jobBuild))
+                .build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        // When
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        List<Webhook> expectedWebhooks = Arrays.asList(
+                new PipelineWebhook(
+                        DEFAULT_NAME,
+                        defaultUrl(pipelineBuild),
+                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_END_DATE),
+                        "serverID-2",
+                        "2",
+                        NO_PARTIAL_RETRY,
+                        PipelineStatus.SUCCESS),
+                new JobWebhook(
+                        DEFAULT_NAME,
+                        defaultUrl(jobBuild),
+                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_END_DATE),
+                        "serverID-2",
+                        DEFAULT_NAME,
+                        "serverID-1",
+                        JobStatus.SUCCESS,
+                        DEFAULT_QUEUE_TIME));
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
     }
 }

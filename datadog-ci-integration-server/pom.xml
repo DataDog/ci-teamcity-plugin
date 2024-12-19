@@ -4,7 +4,7 @@
   <parent>
     <artifactId>datadog-ci-integration</artifactId>
     <groupId>com.datadog.teamcity.plugin</groupId>
-    <version>0.0.2</version>
+    <version>0.0.1</version>
   </parent>
   <artifactId>datadog-ci-integration-server</artifactId>
   <packaging>jar</packaging>

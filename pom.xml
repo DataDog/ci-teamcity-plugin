@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.datadog.teamcity.plugin</groupId>
   <artifactId>datadog-ci-integration</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <packaging>pom</packaging>
   <properties>
       <teamcity-version>2021.2</teamcity-version>

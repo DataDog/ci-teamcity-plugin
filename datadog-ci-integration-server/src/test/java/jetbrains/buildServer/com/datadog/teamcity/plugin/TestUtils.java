@@ -30,8 +30,8 @@ public final class TestUtils {
     public static final String DEFAULT_SERVER_ID = "serverID";
     public static final String DEFAULT_ID = "1";
     public static final String DEFAULT_PIPELINE_ID = "2";
-    public static final String DEFAULT_BUILD_URL = "localhost/build/1";
-    public static final String LOCALHOST = "localhost";
+    public static final String DEFAULT_BUILD_URL = "http://localhost/build/1";
+    public static final String LOCALHOST = "http://localhost";
     public static final String DEFAULT_PROJECT_ID = "Project ID";
     public static final String DEFAULT_REPO_URL = "repository-url.com";
     public static final String DEFAULT_BRANCH = "main";

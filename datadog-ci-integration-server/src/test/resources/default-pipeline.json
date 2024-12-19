@@ -1,7 +1,7 @@
 {
   "level": "pipeline",
   "name": "Full Name",
-  "url": "localhost/build/1",
+  "url": "http://localhost/build/1",
   "start": "1970-01-01T00:00:03Z",
   "end": "1970-01-01T00:00:04Z",
   "unique_id": "1",

@@ -25,6 +25,7 @@ import jetbrains.buildServer.serverSide.ServerSettings;
 import org.springframework.stereotype.Component;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
@@ -63,14 +64,14 @@ public class BuildChainProcessor {
 
     private static final Logger LOG = Logger.getInstance(BuildChainProcessor.class.getName());
 
-    private final URL serverRootURL;
+    private final SBuildServer buildServer;
     private final DatadogClient datadogClient;
     private final ProjectHandler projectHandler;
     private final GitInformationExtractor gitInformationExtractor;
     private final ServerSettings serverSettings;
 
     public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
-        this.serverRootURL = buildServerRootURL(buildServer);
+        this.buildServer = buildServer;
         this.datadogClient = datadogClient;
         this.projectHandler = projectHandler;
         this.gitInformationExtractor = gitInformationExtractor;
@@ -223,13 +224,15 @@ public class BuildChainProcessor {
 
     private String buildURL(SBuild build) {
         long buildID = build.getBuildId();
-        if (this.serverRootURL == null) {
-            LOG.warn(format("Server root URL is invalid. Falling back to a default empty URL (build %s).", buildID));
-            return "";
-        }
-
         try {
-            return new URL(this.serverRootURL, format("/build/%s", buildID)).toString();
+            String rootURL = buildServer.getRootUrl();
+            URI uri = URI.create(rootURL);
+            if (uri.getScheme() == null) {
+                rootURL = format("%s://%s", DEFAULT_SCHEME, rootURL);
+            }
+
+            URL serverRootURL = new URL(rootURL);
+            return new URL(serverRootURL, format("/build/%s", buildID)).toString();
         } catch (MalformedURLException e) {
             LOG.warn(format("Failed to build a valid URL for build %s. Falling back to a default empty URL. Exception: %s", buildID, e.getMessage()), e);
             return "";
@@ -239,22 +242,5 @@ public class BuildChainProcessor {
     private String buildID(SBuild build) {
         // Server ID is included to avoid build ID conflicts on different TC instances within the same org
         return format("%s-%s", serverSettings.getServerUUID(), build.getBuildId());
-    }
-
-    private URL buildServerRootURL(SBuildServer buildServer) {
-        String rootURL = buildServer.getRootUrl();
-        try {
-            URL url = new URL(rootURL);
-
-            // If no scheme is present, add the default one
-            if (url.getProtocol() == null || url.getProtocol().isEmpty()) {
-                url = new URL(format("%s://%s", DEFAULT_SCHEME, rootURL));
-            }
-
-            return url;
-        } catch (MalformedURLException e) {
-            LOG.warn(format("Invalid server root URL: %s. Pipeline and job URLs will not be generated.", rootURL), e);
-            return null;
-        }
     }
 }

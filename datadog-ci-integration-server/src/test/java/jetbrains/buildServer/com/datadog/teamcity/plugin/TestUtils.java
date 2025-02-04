@@ -32,6 +32,7 @@ public final class TestUtils {
     public static final String DEFAULT_PIPELINE_ID = "2";
     public static final String DEFAULT_BUILD_URL = "http://localhost/build/1";
     public static final String LOCALHOST = "http://localhost";
+    public static final String NON_DEFAULT_URL = "http://non-default-url";
     public static final String DEFAULT_PROJECT_ID = "Project ID";
     public static final String DEFAULT_REPO_URL = "repository-url.com";
     public static final String DEFAULT_BRANCH = "main";
@@ -60,6 +61,10 @@ public final class TestUtils {
 
     public static String defaultUrl(SBuild build) {
         return format("%s/build/%s", LOCALHOST, build.getBuildId());
+    }
+
+    public static String nonDefaultUrl(SBuild build) {
+        return format("%s/build/%s", NON_DEFAULT_URL, build.getBuildId());
     }
 
     public static HostInfo defaultHostInfo() {

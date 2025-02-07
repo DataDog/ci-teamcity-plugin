@@ -44,6 +44,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.IS_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.LOCALHOST;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NON_DEFAULT_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
@@ -51,6 +52,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaul
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultUrl;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.nonDefaultUrl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -657,7 +659,7 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldGenerateEmptyURLsWhenInvalid() {
         // Setup: invalid server root URL
-        when(buildServerMock.getRootUrl()).thenReturn("invalid//url");
+        when(buildServerMock.getRootUrl()).thenReturn("invalid-protocol://hostname");
 
         // Setup: [job -> pipeline]
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
@@ -704,9 +706,6 @@ public class DatadogServerAdapterProcessingTest {
 
     @Test
     public void shouldGenerateValidURLs() {
-        // Setup: server root URL with final slash
-        when(buildServerMock.getRootUrl()).thenReturn("http://localhost/");
-
         // Setup: [job -> pipeline]
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
@@ -718,6 +717,8 @@ public class DatadogServerAdapterProcessingTest {
         // When
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        // Setup: non default server root URL with final slash
+        when(buildServerMock.getRootUrl()).thenReturn(NON_DEFAULT_URL + "/");
         datadogServerAdapter.buildFinished(pipelineBuild);
 
         // Then
@@ -727,7 +728,7 @@ public class DatadogServerAdapterProcessingTest {
         List<Webhook> expectedWebhooks = Arrays.asList(
                 new PipelineWebhook(
                         DEFAULT_NAME,
-                        defaultUrl(pipelineBuild),
+                        nonDefaultUrl(pipelineBuild),
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
                         "serverID-2",
@@ -736,7 +737,7 @@ public class DatadogServerAdapterProcessingTest {
                         PipelineStatus.SUCCESS),
                 new JobWebhook(
                         DEFAULT_NAME,
-                        defaultUrl(jobBuild),
+                        nonDefaultUrl(jobBuild),
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
                         "serverID-2",

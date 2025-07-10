@@ -53,6 +53,7 @@ public class DatadogServerAdapter extends BuildServerAdapter {
 
     private void onBuildFinished(SRunningBuild build) {
         if (!projectHandler.isPluginEnabled(build)) {
+            LOG.debug(format("Plugin not enabled"));
             return;
         }
 

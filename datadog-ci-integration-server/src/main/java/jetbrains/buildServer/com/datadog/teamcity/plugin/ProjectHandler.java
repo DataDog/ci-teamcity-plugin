@@ -7,6 +7,7 @@
 
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
+import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
@@ -19,6 +20,8 @@ import static java.lang.String.format;
 
 @Component
 public class ProjectHandler {
+
+    private static final Logger LOG = Logger.getInstance(ProjectHandler.class.getName());
 
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
@@ -45,8 +48,14 @@ public class ProjectHandler {
     }
 
     public boolean isPluginEnabled(SBuild build) {
-        String enabled = getProject(build).getParameterValue(DATADOG_ENABLED_PARAM);
-        return Boolean.parseBoolean(enabled);
+        ProjectEx project = getProject(build);
+        String enabled = project.getParameterValue(DATADOG_ENABLED_PARAM);
+        boolean isPluginEnabled = Boolean.parseBoolean(enabled);
+        if (!isPluginEnabled) {
+            LOG.debug(format("Plugin not enabled in project '%s'", project.getFullName()));
+        }
+
+        return isPluginEnabled;
     }
 
     @Nonnull

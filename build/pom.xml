@@ -4,7 +4,7 @@
   <parent>
     <artifactId>datadog-ci-integration</artifactId>
     <groupId>com.datadog.teamcity.plugin</groupId>
-    <version>0.0.3</version>
+    <version>0.0.4</version>
   </parent>
   <artifactId>build</artifactId>
   <packaging>pom</packaging>
@@ -18,7 +18,7 @@
       <dependency>
            <groupId>com.datadog.teamcity.plugin</groupId>
            <artifactId>datadog-ci-integration-server</artifactId>
-           <version>0.0.3</version>
+           <version>0.0.4</version>
       </dependency>
   </dependencies>
   <build>

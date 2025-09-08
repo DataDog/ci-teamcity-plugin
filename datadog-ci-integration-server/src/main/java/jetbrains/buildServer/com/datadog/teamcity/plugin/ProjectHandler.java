@@ -8,6 +8,8 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.parameters.ProcessingResult;
+import jetbrains.buildServer.parameters.ValueResolver;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
@@ -35,10 +37,13 @@ public class ProjectHandler {
 
     public ProjectParameters getProjectParameters(SBuild build) {
         ProjectEx project = getProject(build);
-        String apiKey = project.getParameterValue(DATADOG_API_KEY_PARAM);
+        String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
+        ValueResolver resolver = project.getValueResolver();
+        ProcessingResult resolved = resolver.resolve(apiKeyReference);
+        String apiKey = resolved.getResult();
         String ddSite = project.getParameterValue(DATADOG_SITE_PARAM);
 
-        if (apiKey == null || ddSite == null) {
+        if (!resolved.isFullyResolved() || ddSite == null) {
             throw new IllegalArgumentException(
                     format("Could not find required properties '%s' and '%s' for project '%s'. Project parameters: %s",
                             DATADOG_API_KEY_PARAM, DATADOG_SITE_PARAM, project.getName(), project.getParameters()));

@@ -8,6 +8,8 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.parameters.ProcessingResult;
+import jetbrains.buildServer.parameters.ValueResolver;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
@@ -35,13 +37,13 @@ public class ProjectHandler {
 
     public ProjectParameters getProjectParameters(SBuild build) {
         ProjectEx project = getProject(build);
-        String apiKey = project.getParameterValue(DATADOG_API_KEY_PARAM);
+        String apiKey = getApiKey(project);
         String ddSite = project.getParameterValue(DATADOG_SITE_PARAM);
 
-        if (apiKey == null || ddSite == null) {
+        if (ddSite == null) {
             throw new IllegalArgumentException(
-                    format("Could not find required properties '%s' and '%s' for project '%s'. Project parameters: %s",
-                            DATADOG_API_KEY_PARAM, DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
+                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
+                            DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
         }
 
         return new ProjectParameters(apiKey, ddSite);
@@ -63,6 +65,19 @@ public class ProjectHandler {
         return (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
+    }
+
+    private String getApiKey(ProjectEx project) {
+        String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
+        ValueResolver resolver = project.getValueResolver();
+        ProcessingResult resolved = resolver.resolve(apiKeyReference);
+        if (!resolved.isFullyResolved()) {
+            throw new IllegalArgumentException(
+                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
+                            DATADOG_API_KEY_PARAM, project.getName(), project.getParameters()));
+        }
+
+        return resolved.getResult();
     }
 
     public static class ProjectParameters {

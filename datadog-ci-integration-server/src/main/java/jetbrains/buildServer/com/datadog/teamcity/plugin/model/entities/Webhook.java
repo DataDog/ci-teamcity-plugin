@@ -77,6 +77,7 @@ public abstract class Webhook {
 
     public enum CILevel {
         @JsonProperty("job") JOB,
-        @JsonProperty("pipeline") PIPELINE
+        @JsonProperty("pipeline") PIPELINE,
+        @JsonProperty("step") STEP
     }
 }

@@ -59,6 +59,9 @@ public class DatadogClient {
         String payload = serialize(webhook);
         HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
 
+        // Debug logging to see what we're sending
+        LOG.debug(format("Sending webhook '%s': %s", webhook.id(), payload));
+
         int currentAttempt = 0;
         while (currentAttempt <= retryInfo.maxRetries) {
             try {

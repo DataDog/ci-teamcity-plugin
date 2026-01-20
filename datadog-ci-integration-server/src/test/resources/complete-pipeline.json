@@ -1,3 +1,4 @@
+[
 {
   "level": "pipeline",
   "name": "Full Name",
@@ -22,3 +23,4 @@
   "partial_retry": false,
   "status": "success"
 }
+]

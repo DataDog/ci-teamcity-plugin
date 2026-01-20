@@ -28,6 +28,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.util.List;
+
+import static java.util.Collections.singletonList;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -142,7 +145,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
@@ -170,7 +173,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
@@ -198,7 +201,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
@@ -226,7 +229,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(1))
@@ -243,7 +246,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
@@ -259,7 +262,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
@@ -286,7 +289,7 @@ public class DatadogClientTest {
 
         // When
         JobWebhook jobWebhook = completeJob();
-        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(jobWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))

@@ -89,8 +89,9 @@ public class BuildStepExtractionTest {
         assertThat(step.getDurationMs()).isEqualTo(4126L);
         assertThat(step.getStatus()).isEqualTo(StepStatus.SUCCESS); // Always SUCCESS due to API limitation
         assertThat(step.getError()).isNull();
-        assertThat(step.getStart()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})");
-        assertThat(step.getEnd()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})");
+        // Updated regex to accept optional milliseconds
+        assertThat(step.getStart()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3})?(Z|[+-]\\d{2}:\\d{2})");
+        assertThat(step.getEnd()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3})?(Z|[+-]\\d{2}:\\d{2})");
     }
 
     @Test

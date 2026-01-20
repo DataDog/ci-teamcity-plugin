@@ -8,6 +8,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.BuildProblemData;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.BuildStep.StepStatus;
 import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.parameters.ParametersProvider;
 import jetbrains.buildServer.serverSide.Branch;
@@ -98,6 +99,22 @@ public class MockBuild {
         return buildMock;
     }
 
+    static class MockBuildStep {
+        final String name;
+        final long startMs;
+        final long endMs;
+        final StepStatus status;
+        final String error;
+
+        MockBuildStep(String name, long startMs, long endMs, StepStatus status, String error) {
+            this.name = name;
+            this.startMs = startMs;
+            this.endMs = endMs;
+            this.status = status;
+            this.error = error;
+        }
+    }
+
     public static class Builder {
         // Build customizable info
         private final long id;
@@ -122,6 +139,9 @@ public class MockBuild {
         private int dependentsNum;
         private List<BuildDependency> dependencies = new ArrayList<>();
         private List<BuildPromotion> allDependencies = new ArrayList<>();
+
+        // Build step information (TODO: implement once TeamCity API is researched)
+        private final List<MockBuildStep> buildSteps = new ArrayList<>();
 
         public Builder(long id, MockBuild.BuildType buildType) {
             this.id = id;
@@ -259,6 +279,20 @@ public class MockBuild {
             when(agentMock.getHostAddress()).thenReturn(DEFAULT_NODE_HOSTNAME);
             when(agentMock.getHostName()).thenReturn(DEFAULT_NODE_NAME);
             return this;
+        }
+
+        public Builder withStep(String name, long startMs, long endMs, StepStatus status) {
+            return withStep(name, startMs, endMs, status, null);
+        }
+
+        public Builder withStep(String name, long startMs, long endMs, StepStatus status, String error) {
+            buildSteps.add(new MockBuildStep(name, startMs, endMs, status, error));
+            return this;
+        }
+
+        public Builder withSingleStep(String name, long startMs, long endMs, StepStatus status) {
+            buildSteps.clear();
+            return withStep(name, startMs, endMs, status, null);
         }
 
         public SRunningBuild build() {

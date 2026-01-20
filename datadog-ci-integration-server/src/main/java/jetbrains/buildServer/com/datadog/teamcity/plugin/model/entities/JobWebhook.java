@@ -50,6 +50,10 @@ public class JobWebhook extends Webhook {
     @Nullable
     protected ErrorInfo errorInfo;
 
+    @JsonProperty("steps")
+    @Nullable
+    private List<BuildStep> steps;
+
     public JobWebhook(@Nonnull String name,
                       @Nonnull String url,
                       @Nonnull String start,
@@ -79,6 +83,15 @@ public class JobWebhook extends Webhook {
         this.hostInfo = hostInfo;
     }
 
+    public void setSteps(@Nullable List<BuildStep> steps) {
+        this.steps = steps;
+    }
+
+    @Nullable
+    public List<BuildStep> getSteps() {
+        return steps;
+    }
+
     @Nonnull
     public JobStatus status() {
         return status;
@@ -95,12 +108,12 @@ public class JobWebhook extends Webhook {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         JobWebhook that = (JobWebhook) o;
-        return queueTimeMs == that.queueTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
+        return queueTimeMs == that.queueTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo) && Objects.equals(steps, that.steps);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependenciesIds, hostInfo, errorInfo);
+        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependenciesIds, hostInfo, errorInfo, steps);
     }
 
     @Override
@@ -114,6 +127,7 @@ public class JobWebhook extends Webhook {
             ", dependenciesIds=" + dependenciesIds +
             ", hostInfo=" + hostInfo +
             ", errorInfo=" + errorInfo +
+            ", steps=" + steps +
             ", level=" + level +
             ", name='" + name + '\'' +
             ", url='" + url + '\'' +

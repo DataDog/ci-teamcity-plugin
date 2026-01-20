@@ -31,6 +31,7 @@ public class DatadogClient {
     private static final Logger LOG = Logger.getInstance(DatadogClient.class.getName());
     private static final String TEAMCITY_PROVIDER = "teamcity";
     private static final String WEBHOOK_INTAKE_BASE_URL = "https://webhook-intake.%s/api/v2/webhook";
+    private static final int DEFAULT_BATCH_SIZE = 20;
 
     protected static final String DD_API_KEY_HEADER = "DD-API-KEY";
     protected static final String DD_CI_PROVIDER_HEADER = "DD-CI-PROVIDER-NAME";
@@ -48,15 +49,17 @@ public class DatadogClient {
     }
 
     public void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite) {
-        // For now, send each webhook individually as a single-element batch
-        // This maintains current behavior while preparing for true batching
-        for (Webhook webhook : webhooks) {
-            clientExecutor.submit(() -> sendWebhookBatchWithRetries(singletonList(webhook), apiKey, ddSite));
-        }
+        sendWebhooksAsync(webhooks, apiKey, ddSite, DEFAULT_BATCH_SIZE);
     }
     
-    private static List<Webhook> singletonList(Webhook webhook) {
-        return java.util.Collections.singletonList(webhook);
+    @VisibleForTesting
+    protected void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite, int batchSize) {
+        // Split webhooks into batches and send each batch asynchronously
+        for (int i = 0; i < webhooks.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, webhooks.size());
+            List<Webhook> batch = webhooks.subList(i, end);
+            clientExecutor.submit(() -> sendWebhookBatchWithRetries(batch, apiKey, ddSite));
+        }
     }
 
     @VisibleForTesting

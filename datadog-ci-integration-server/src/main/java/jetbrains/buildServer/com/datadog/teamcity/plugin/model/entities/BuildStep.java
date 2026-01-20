@@ -16,6 +16,10 @@ import java.util.Objects;
 /**
  * Represents a single build step within a TeamCity job.
  * Contains timing information and status for individual steps like checkout, compile, test, etc.
+ * 
+ * <p><b>Note:</b> Due to TeamCity API limitations, the status field is currently always set to SUCCESS.
+ * TeamCity's public Java API does not expose individual step success/failure status. Only build-level
+ * status and step timing information are available.</p>
  */
 public class BuildStep {
 

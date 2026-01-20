@@ -7,6 +7,7 @@
 
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.BuildStep;
@@ -356,7 +357,8 @@ public class BuildChainProcessor {
      * as SUCCESS regardless of actual outcome. Only step timing data is available via buildStageDuration 
      * statistics. Build-level status is available via SBuild.getBuildStatus().</p>
      */
-    private List<BuildStep> extractBuildSteps(SBuild build) {
+    @VisibleForTesting
+    List<BuildStep> extractBuildSteps(SBuild build) {
         Map<String, BigDecimal> stats = build.getStatisticValues();
         String stageDurationPrefix = "buildStageDuration:";
         

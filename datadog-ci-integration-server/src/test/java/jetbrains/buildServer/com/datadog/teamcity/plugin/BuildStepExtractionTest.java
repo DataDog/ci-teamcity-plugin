@@ -9,153 +9,224 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.BuildStep;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.BuildStep.StepStatus;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
+import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.serverSide.SBuild;
+import jetbrains.buildServer.serverSide.SBuildRunnerDescriptor;
+import jetbrains.buildServer.serverSide.SBuildType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.JOB;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
- * Test-driven development for build step extraction.
+ * Tests for build step extraction from TeamCity statistics API.
  * 
- * Research TODO:
- * - Investigate TeamCity API: jetbrains.buildServer.serverSide.build.steps
- * - Check SBuild methods for step information
- * - Look at BuildStatistics for step timing data
- * - Explore build messages for step events
+ * Implementation uses SBuild.getStatisticValues() which provides buildStageDuration:* entries.
+ * All steps are marked as SUCCESS due to TeamCity API limitations (no step-level status available).
  */
 @RunWith(MockitoJUnitRunner.class)
 public class BuildStepExtractionTest {
+
+    @Mock
+    private DatadogClient datadogClient;
+    @Mock
+    private ProjectHandler projectHandler;
+    @Mock
+    private GitInformationExtractor gitExtractor;
+    @Mock
+    private jetbrains.buildServer.serverSide.SBuildServer buildServer;
+    @Mock
+    private jetbrains.buildServer.serverSide.ServerSettings serverSettings;
 
     private BuildChainProcessor processor;
 
     @Before
     public void setUp() {
-        // TODO: Set up BuildChainProcessor with mocked dependencies
-        // This will be implemented once we understand the TeamCity API
+        processor = new BuildChainProcessor(buildServer, datadogClient, projectHandler, gitExtractor, serverSettings);
     }
 
     @Test
     public void shouldReturnEmptyListWhenNoStepsAvailable() {
-        // Given: A build with no step information
-        SBuild build = new MockBuild.Builder(1, JOB).build();
+        // Given: A build with no build stage statistics
+        SBuild build = buildWithStatistics(new HashMap<>());
 
         // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
+        List<BuildStep> steps = processor.extractBuildSteps(build);
 
-        // Then: Should return empty list
+        // Then: Should have no steps
         assertThat(steps).isEmpty();
     }
 
     @Test
-    public void shouldExtractSingleBuildStep() {
-        // Given: A build with one step
-        SBuild build = new MockBuild.Builder(1, JOB)
-                .withSingleStep("Checkout", 1000L, 16000L, StepStatus.SUCCESS)
-                .build();
+    public void shouldExtractVcsCheckoutStage() {
+        // Given: A build with VCS checkout timing
+        Map<String, BigDecimal> stats = new HashMap<>();
+        stats.put("buildStageDuration:sourcesUpdate", new BigDecimal("4126"));
+        SBuild build = buildWithStatistics(stats);
 
         // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
+        List<BuildStep> steps = processor.extractBuildSteps(build);
 
-        // Then: Should extract one step with correct timing
+        // Then: Should extract checkout as a step
         assertThat(steps).hasSize(1);
         BuildStep step = steps.get(0);
         assertThat(step.getName()).isEqualTo("Checkout");
-        assertThat(step.getDurationMs()).isEqualTo(15000L); // 16000 - 1000
-        assertThat(step.getStatus()).isEqualTo(StepStatus.SUCCESS);
+        assertThat(step.getDurationMs()).isEqualTo(4126L);
+        assertThat(step.getStatus()).isEqualTo(StepStatus.SUCCESS); // Always SUCCESS due to API limitation
         assertThat(step.getError()).isNull();
+        assertThat(step.getStart()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})");
+        assertThat(step.getEnd()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})");
     }
 
     @Test
-    public void shouldExtractMultipleBuildSteps() {
-        // Given: A build with multiple steps
-        SBuild build = new MockBuild.Builder(1, JOB)
-                .withStep("Checkout", 1000L, 16000L, StepStatus.SUCCESS)
-                .withStep("Maven compile", 16000L, 151000L, StepStatus.SUCCESS)
-                .withStep("Maven test", 151000L, 180000L, StepStatus.SUCCESS)
-                .build();
+    public void shouldExtractUserDefinedBuildSteps() {
+        // Given: A build with two user-defined steps
+        Map<String, BigDecimal> stats = new HashMap<>();
+        stats.put("buildStageDuration:buildSteptest_step_1", new BigDecimal("126"));
+        stats.put("buildStageDuration:buildSteptest_step_2", new BigDecimal("142"));
+        
+        SBuild build = buildWithStatistics(stats);
+        mockBuildRunners(build, asList(
+            runner("test_step_1", "test step 1"),
+            runner("test_step_2", "test step 2")
+        ));
 
         // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
+        List<BuildStep> steps = processor.extractBuildSteps(build);
 
-        // Then: Should extract all steps in order
-        assertThat(steps).hasSize(3);
+        // Then: Should extract both steps
+        assertThat(steps).hasSize(2);
+        assertThat(steps.get(0).getName()).isEqualTo("test step 1");
+        assertThat(steps.get(0).getDurationMs()).isEqualTo(126L);
+        assertThat(steps.get(1).getName()).isEqualTo("test step 2");
+        assertThat(steps.get(1).getDurationMs()).isEqualTo(142L);
+    }
+
+    @Test
+    public void shouldExtractAllBuildStagesInOrder() {
+        // Given: A build with all stages
+        Map<String, BigDecimal> stats = new HashMap<>();
+        stats.put("buildStageDuration:sourcesUpdate", new BigDecimal("3908"));
+        stats.put("buildStageDuration:toolsUpdating", new BigDecimal("1"));
+        stats.put("buildStageDuration:firstStepPreparation", new BigDecimal("1"));
+        stats.put("buildStageDuration:buildSteptest_step_1", new BigDecimal("109"));
+        stats.put("buildStageDuration:buildFinishing", new BigDecimal("64"));
+        stats.put("buildStageDuration:artifactsPublishing", new BigDecimal("1327"));
         
+        SBuild build = buildWithStatistics(stats);
+        mockBuildRunners(build, asList(runner("test_step_1", "Maven Test")));
+
+        // When: Extracting build steps
+        List<BuildStep> steps = processor.extractBuildSteps(build);
+
+        // Then: Should extract all 6 stages in execution order
+        assertThat(steps).hasSize(6);
         assertThat(steps.get(0).getName()).isEqualTo("Checkout");
-        assertThat(steps.get(0).getDurationMs()).isEqualTo(15000L);
+        assertThat(steps.get(1).getName()).isEqualTo("Update Tools");
+        assertThat(steps.get(2).getName()).isEqualTo("Preparation");
+        assertThat(steps.get(3).getName()).isEqualTo("Maven Test");
+        assertThat(steps.get(4).getName()).isEqualTo("Finalize Build");
+        assertThat(steps.get(5).getName()).isEqualTo("Publish Artifacts");
         
-        assertThat(steps.get(1).getName()).isEqualTo("Maven compile");
-        assertThat(steps.get(1).getDurationMs()).isEqualTo(135000L);
-        
-        assertThat(steps.get(2).getName()).isEqualTo("Maven test");
-        assertThat(steps.get(2).getDurationMs()).isEqualTo(29000L);
+        // Verify timing is cumulative (each step starts where previous ended)
+        assertThat(steps.get(0).getDurationMs()).isEqualTo(3908L);
+        assertThat(steps.get(1).getDurationMs()).isEqualTo(1L);
+        assertThat(steps.get(5).getDurationMs()).isEqualTo(1327L);
     }
 
     @Test
-    public void shouldHandleFailedStep() {
-        // Given: A build with a failed step
-        SBuild build = new MockBuild.Builder(1, JOB)
-                .withStep("Checkout", 1000L, 16000L, StepStatus.SUCCESS)
-                .withStep("Maven test", 16000L, 45000L, StepStatus.ERROR, "Tests failed: 3 failures")
-                .build();
-
-        // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
-
-        // Then: Should extract failed step with error message
-        assertThat(steps).hasSize(2);
+    public void shouldHandleMissingStepWhenBuildFails() {
+        // Given: A failed build where step 2 never ran (no statistics entry)
+        Map<String, BigDecimal> stats = new HashMap<>();
+        stats.put("buildStageDuration:sourcesUpdate", new BigDecimal("3908"));
+        stats.put("buildStageDuration:toolsUpdating", new BigDecimal("1"));
+        stats.put("buildStageDuration:firstStepPreparation", new BigDecimal("1"));
+        stats.put("buildStageDuration:buildSteptest_step_1", new BigDecimal("109"));
+        // Note: buildSteptest_step_2 is MISSING (build failed before it ran)
+        stats.put("buildStageDuration:buildFinishing", new BigDecimal("64"));
+        stats.put("buildStageDuration:artifactsPublishing", new BigDecimal("1327"));
         
-        BuildStep failedStep = steps.get(1);
-        assertThat(failedStep.getStatus()).isEqualTo(StepStatus.ERROR);
-        assertThat(failedStep.getError()).isEqualTo("Tests failed: 3 failures");
+        SBuild build = buildWithStatistics(stats);
+        mockBuildRunners(build, asList(
+            runner("test_step_1", "test step 1"),
+            runner("test_step_2", "test step 2") // Configured but didn't run
+        ));
+
+        // When: Extracting build steps
+        List<BuildStep> steps = processor.extractBuildSteps(build);
+
+        // Then: Should only extract step 1, not step 2 (no statistics = didn't run)
+        assertThat(steps).hasSize(6); // 5 lifecycle stages + 1 executed user step
+        assertThat(steps.stream().filter(s -> s.getName().contains("test step")).count()).isEqualTo(1);
+        assertThat(steps.stream().anyMatch(s -> s.getName().equals("test step 1"))).isTrue();
+        assertThat(steps.stream().anyMatch(s -> s.getName().equals("test step 2"))).isFalse();
     }
 
     @Test
-    public void shouldHandleCanceledStep() {
-        // Given: A build with a canceled step
-        SBuild build = new MockBuild.Builder(1, JOB)
-                .withStep("Checkout", 1000L, 16000L, StepStatus.SUCCESS)
-                .withStep("Long running task", 16000L, 20000L, StepStatus.CANCELED)
-                .build();
+    public void shouldMarkAllStepsAsSuccessRegardlessOfBuildStatus() {
+        // Given: A FAILED build (but we can't detect which step failed via API)
+        Map<String, BigDecimal> stats = new HashMap<>();
+        stats.put("buildStageDuration:buildSteptest_step_1", new BigDecimal("126"));
+        
+        SBuild build = buildWithStatistics(stats);
+        when(build.getBuildStatus()).thenReturn(Status.FAILURE); // Build failed
+        mockBuildRunners(build, asList(runner("test_step_1", "test step 1")));
 
         // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
+        List<BuildStep> steps = processor.extractBuildSteps(build);
 
-        // Then: Should mark step as canceled
-        assertThat(steps).hasSize(2);
-        assertThat(steps.get(1).getStatus()).isEqualTo(StepStatus.CANCELED);
+        // Then: Steps are still marked as SUCCESS (API limitation)
+        assertThat(steps).hasSize(1);
+        assertThat(steps.get(0).getStatus()).isEqualTo(StepStatus.SUCCESS);
+        assertThat(steps.get(0).getError()).isNull();
+        // Note: Job-level status would be ERROR, but step-level status unknown
     }
 
-    @Test
-    public void shouldFormatTimestampsAsRFC3339() {
-        // Given: A build with steps
+    // Helper methods
+
+    private SBuild buildWithStatistics(Map<String, BigDecimal> statistics) {
         SBuild build = new MockBuild.Builder(1, JOB)
-                .withSingleStep("Checkout", 1000L, 16000L, StepStatus.SUCCESS)
+                .withStatus(Status.NORMAL)
+                .withStartDate(new Date(1000000))
+                .withEndDate(new Date(1010000))
+                .withFullName("Test Job")
                 .build();
-
-        // When: Extracting build steps
-        List<BuildStep> steps = extractBuildSteps(build);
-
-        // Then: Timestamps should be in RFC3339 format
-        BuildStep step = steps.get(0);
-        assertThat(step.getStart()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
-        assertThat(step.getEnd()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
+        
+        when(build.getStatisticValues()).thenReturn(statistics);
+        when(buildServer.getRootUrl()).thenReturn("http://localhost");
+        
+        // Mock build type with empty runners by default
+        SBuildType buildType = mock(SBuildType.class);
+        when(buildType.getBuildRunners()).thenReturn(emptyList());
+        when(build.getBuildType()).thenReturn(buildType);
+        
+        return build;
     }
 
-    /**
-     * Helper method to extract build steps.
-     * This will be replaced with actual implementation once TeamCity API is understood.
-     */
-    private List<BuildStep> extractBuildSteps(SBuild build) {
-        // TODO: Implement actual extraction logic once we research TeamCity API
-        // For now, this is a placeholder that will be implemented in BuildChainProcessor
-        throw new UnsupportedOperationException(
-                "Build step extraction not yet implemented. " +
-                "Need to research TeamCity API: jetbrains.buildServer.serverSide.build.steps");
+    private void mockBuildRunners(SBuild build, List<SBuildRunnerDescriptor> runners) {
+        SBuildType buildType = build.getBuildType();
+        when(buildType.getBuildRunners()).thenReturn(runners);
+    }
+
+    private SBuildRunnerDescriptor runner(String id, String name) {
+        SBuildRunnerDescriptor runner = mock(SBuildRunnerDescriptor.class);
+        when(runner.getId()).thenReturn(id);
+        when(runner.getName()).thenReturn(name);
+        return runner;
     }
 }

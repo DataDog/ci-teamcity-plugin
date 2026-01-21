@@ -313,9 +313,11 @@ public class DatadogServerAdapterProcessingTest {
         Date firstJobStart = new Date(1000);
         Date pipelineStart = new Date(5000);
         SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(100)  // Old job from previous run (triggered by previous pipeline ID 100)
             .withStartDate(firstJobStart)
             .build();
         SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+            .isTriggeredBySnapshotDependency(3)
             .withStartDate(pipelineStart)
             .withDependencies(singletonList(firstJobBuild))
             .build();

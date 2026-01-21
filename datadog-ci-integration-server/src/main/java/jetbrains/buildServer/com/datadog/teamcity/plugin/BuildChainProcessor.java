@@ -99,7 +99,7 @@ public class BuildChainProcessor {
         ChainMembership chainInfo = gatherChainMembers(pipelineBuild);
         
         LOG.info(format("Found %d builds in trigger chain", chainInfo.acceptedBuilds.size()));
-        LOG.info(format("Chain start time: %s", chainInfo.minStartTime));
+        LOG.info(format("Chain queue time: %s", chainInfo.minQueueTime));
         LOG.info(format("Chain end time: %s", chainInfo.maxFinishTime));
         
         // Create pipeline webhook with expanded timing from entire chain
@@ -123,11 +123,11 @@ public class BuildChainProcessor {
     }
 
     private PipelineWebhook createPipelineWebhook(SBuild pipelineBuild, ChainMembership chainInfo) {
-        // Use chain timing instead of just the composite build's timing
+        // Use chain timing (from earliest queue time to latest finish time)
         PipelineWebhook pipelineWebhook = new PipelineWebhook(
             buildName(pipelineBuild),
             buildURL(pipelineBuild),
-            toRFC3339(chainInfo.minStartTime),
+            toRFC3339(chainInfo.minQueueTime),
             toRFC3339(chainInfo.maxFinishTime),
             buildID(pipelineBuild),
             String.valueOf(pipelineBuild.getBuildId()),
@@ -164,7 +164,7 @@ public class BuildChainProcessor {
         Map<Long, SBuild> acceptedBuilds = new HashMap<>();
         acceptedBuilds.put(pipelineBuild.getBuildId(), pipelineBuild);
         
-        Date minStartTime = pipelineBuild.getStartDate();
+        Date minQueueTime = pipelineBuild.getQueuedDate();
         Date maxFinishTime = pipelineBuild.getFinishDate();
         
         // Get all dependencies (flattened graph)
@@ -198,9 +198,9 @@ public class BuildChainProcessor {
                     LOG.info(format("Accepting build #%d '%s' into chain", dependency.getBuildId(), buildName(dependency)));
                     acceptedBuilds.put(dependency.getBuildId(), dependency);
                     
-                    // Update min/max times
-                    if (dependency.getStartDate().before(minStartTime)) {
-                        minStartTime = dependency.getStartDate();
+                    // Update min/max times (use queue time to include time spent waiting)
+                    if (dependency.getQueuedDate().before(minQueueTime)) {
+                        minQueueTime = dependency.getQueuedDate();
                     }
                     if (dependency.getFinishDate() != null && dependency.getFinishDate().after(maxFinishTime)) {
                         maxFinishTime = dependency.getFinishDate();
@@ -220,7 +220,7 @@ public class BuildChainProcessor {
             .filter(build -> build.getBuildId() != pipelineBuild.getBuildId())
             .collect(toList());
             
-        return new ChainMembership(chainMembers, minStartTime, maxFinishTime);
+        return new ChainMembership(chainMembers, minQueueTime, maxFinishTime);
     }
     
     /**
@@ -264,12 +264,12 @@ public class BuildChainProcessor {
      */
     private static class ChainMembership {
         final List<SBuild> acceptedBuilds;
-        final Date minStartTime;
+        final Date minQueueTime;
         final Date maxFinishTime;
         
-        ChainMembership(List<SBuild> acceptedBuilds, Date minStartTime, Date maxFinishTime) {
+        ChainMembership(List<SBuild> acceptedBuilds, Date minQueueTime, Date maxFinishTime) {
             this.acceptedBuilds = acceptedBuilds;
-            this.minStartTime = minStartTime;
+            this.minQueueTime = minQueueTime;
             this.maxFinishTime = maxFinishTime;
         }
     }

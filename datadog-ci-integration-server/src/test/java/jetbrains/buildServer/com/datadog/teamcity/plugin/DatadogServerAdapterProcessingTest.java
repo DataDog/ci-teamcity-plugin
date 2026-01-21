@@ -205,7 +205,9 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldProcessPipelineBuildWithOneDependency() {
         // Setup: [job -> pipeline]
-        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
+            .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
             .build();
@@ -247,8 +249,11 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldProcessPipelineBuildWithMultipleDependencies() {
         // Setup: [firstJob -> secondJob -> pipeline]
-        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(3)
+            .build();
         SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
+            .isTriggeredBySnapshotDependency(3)
             .withDependencies(singletonList(firstJobBuild))
             .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(3, PIPELINE)
@@ -360,7 +365,9 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldNotSendWebhooksForMiddleCompositeBuilds() {
         // Setup: [firstJob -> secondJob (composite) -> pipeline]
-        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(3)
+            .build();
         SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withAllDependencies(singletonList(firstJobBuild))
             .isComposite()
@@ -407,7 +414,9 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldNotSendWebhooksForPersonalBuilds() {
         // Setup: [firstJob -> secondJob (personal) -> pipeline]
-        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild firstJobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(3)
+            .build();
         SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .withAllDependencies(singletonList(firstJobBuild))
             .isPersonal()
@@ -502,6 +511,7 @@ public class DatadogServerAdapterProcessingTest {
     public void shouldSendJobWebhookWithAdditionalInformation() {
         // Setup: [job -> pipeline]
          SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
             .addNodeInformation()
             .withFailureReason(TC_FAILED_TESTS_TYPE)
             .build();
@@ -552,6 +562,7 @@ public class DatadogServerAdapterProcessingTest {
     public void shouldSendWebhooksWithGitInformation() {
         // Setup: [job -> pipeline]
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
             .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
@@ -662,7 +673,9 @@ public class DatadogServerAdapterProcessingTest {
         when(buildServerMock.getRootUrl()).thenReturn("invalid-protocol://hostname");
 
         // Setup: [job -> pipeline]
-        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
+            .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
                 .withAllDependencies(singletonList(jobBuild))
                 .build();
@@ -707,7 +720,9 @@ public class DatadogServerAdapterProcessingTest {
     @Test
     public void shouldGenerateValidURLs() {
         // Setup: [job -> pipeline]
-        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
+            .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
                 .withAllDependencies(singletonList(jobBuild))
                 .build();

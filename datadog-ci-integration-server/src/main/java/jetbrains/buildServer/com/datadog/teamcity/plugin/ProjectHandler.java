@@ -8,8 +8,6 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.parameters.ProcessingResult;
-import jetbrains.buildServer.parameters.ValueResolver;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
@@ -36,25 +34,28 @@ public class ProjectHandler {
     }
 
     public ProjectParameters getProjectParameters(SBuild build) {
-        ProjectEx project = getProject(build);
-        String apiKey = getApiKey(project);
-        String ddSite = project.getParameterValue(DATADOG_SITE_PARAM);
+        String apiKey = build.getParametersProvider().get(DATADOG_API_KEY_PARAM);
+        if (apiKey == null) {
+            throw new IllegalArgumentException(
+                    format("Could not find required property '%s' for build %s",
+                            DATADOG_API_KEY_PARAM, build.getBuildId()));
+        }
 
+        String ddSite = build.getParametersProvider().get(DATADOG_SITE_PARAM);
         if (ddSite == null) {
             throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
-                            DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
+                    format("Could not find required property '%s' for build %s",
+                            DATADOG_SITE_PARAM, build.getBuildId()));
         }
 
         return new ProjectParameters(apiKey, ddSite);
     }
 
     public boolean isPluginEnabled(SBuild build) {
-        ProjectEx project = getProject(build);
-        String enabled = project.getParameterValue(DATADOG_ENABLED_PARAM);
+        String enabled = build.getParametersProvider().get(DATADOG_ENABLED_PARAM);
         boolean isPluginEnabled = Boolean.parseBoolean(enabled);
         if (!isPluginEnabled) {
-            LOG.debug(format("Plugin not enabled in project '%s'", project.getFullName()));
+            LOG.debug(format("Plugin not enabled for build %s", build.getBuildId()));
         }
 
         return isPluginEnabled;
@@ -65,19 +66,6 @@ public class ProjectHandler {
         return (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
-    }
-
-    private String getApiKey(ProjectEx project) {
-        String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
-        ValueResolver resolver = project.getValueResolver();
-        ProcessingResult resolved = resolver.resolve(apiKeyReference);
-        if (!resolved.isFullyResolved()) {
-            throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
-                            DATADOG_API_KEY_PARAM, project.getName(), project.getParameters()));
-        }
-
-        return resolved.getResult();
     }
 
     public static class ProjectParameters {

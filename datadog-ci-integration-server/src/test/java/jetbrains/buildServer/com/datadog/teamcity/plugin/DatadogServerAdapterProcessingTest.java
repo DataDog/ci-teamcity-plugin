@@ -39,6 +39,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildT
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildType.PIPELINE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_TIME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_SERVER_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
@@ -225,7 +226,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_QUEUE_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
                 "2",
@@ -285,7 +286,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_QUEUE_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
                 "3",
@@ -318,6 +319,7 @@ public class DatadogServerAdapterProcessingTest {
             .build();
         SRunningBuild secondJobBuild = new MockBuild.Builder(2, JOB)
             .isTriggeredBySnapshotDependency(3)
+            .withQueueDate(pipelineStart)
             .withStartDate(pipelineStart)
             .withDependencies(singletonList(firstJobBuild))
             .build();
@@ -345,7 +347,7 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME,
             "serverID-2",
             JobStatus.SUCCESS,
-            3000);
+            0);
         secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -392,7 +394,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_QUEUE_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
                 "3",
@@ -441,7 +443,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_QUEUE_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-3",
                 "3",
@@ -469,6 +471,7 @@ public class DatadogServerAdapterProcessingTest {
         Date pipelineStart = new Date(5000);
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
             .isTriggeredBySnapshotDependency(2)
+            .withQueueDate(jobStart)
             .withStartDate(jobStart)
             .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
@@ -504,7 +507,57 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                2000));  // Queue time = jobStart(4000) - DEFAULT_QUEUE_DATE(2000) = 2000ms
+                0));
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
+    }
+
+    @Test
+    public void shouldUsePipelineTimingFromJobQueueTime() {
+        // Setup: [job -> pipeline]. Job was queued earlier than it started - pipeline timing should include queue time
+        Date jobQueueTime = new Date(1000);
+        Date jobStartTime = new Date(4000);
+        Date pipelineStart = new Date(5000);
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
+            .withQueueDate(jobQueueTime)
+            .withStartDate(jobStartTime)
+            .build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withStartDate(pipelineStart)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        // When
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        List<Webhook> expectedWebhooks = Arrays.asList(
+            new PipelineWebhook(
+                DEFAULT_NAME,
+                defaultUrl(pipelineBuild),
+                toRFC3339(jobQueueTime),
+                toRFC3339(DEFAULT_END_DATE),
+                "serverID-2",
+                "2",
+                NO_PARTIAL_RETRY,
+                PipelineStatus.SUCCESS),
+            new JobWebhook(
+                DEFAULT_NAME,
+                defaultUrl(jobBuild),
+                toRFC3339(jobStartTime),  // Job webhook uses actual start time
+                toRFC3339(DEFAULT_END_DATE),
+                "serverID-2",
+                DEFAULT_NAME,
+                "serverID-1",
+                JobStatus.SUCCESS,
+                3000));  // Queue time = jobStartTime(4000) - jobQueueTime(1000) = 3000ms
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -549,7 +602,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_QUEUE_DATE),
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
                 "2",
@@ -584,7 +637,7 @@ public class DatadogServerAdapterProcessingTest {
         PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
             DEFAULT_NAME,
             defaultUrl(pipelineBuild),
-            toRFC3339(DEFAULT_START_DATE),
+            toRFC3339(DEFAULT_QUEUE_DATE),
             toRFC3339(DEFAULT_END_DATE),
             "serverID-2",
             "2",
@@ -699,7 +752,7 @@ public class DatadogServerAdapterProcessingTest {
                 new PipelineWebhook(
                         DEFAULT_NAME,
                         emptyUrl,
-                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_QUEUE_DATE),
                         toRFC3339(DEFAULT_END_DATE),
                         "serverID-2",
                         "2",
@@ -747,7 +800,7 @@ public class DatadogServerAdapterProcessingTest {
                 new PipelineWebhook(
                         DEFAULT_NAME,
                         nonDefaultUrl(pipelineBuild),
-                        toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_QUEUE_DATE),
                         toRFC3339(DEFAULT_END_DATE),
                         "serverID-2",
                         "2",

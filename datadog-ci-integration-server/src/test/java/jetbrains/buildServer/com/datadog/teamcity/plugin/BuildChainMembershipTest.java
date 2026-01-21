@@ -174,6 +174,7 @@ public class BuildChainMembershipTest {
         long pipelineId = 100L;
         long jobId = 99L;
         
+        Date jobQueueTime = hoursAgo(3);
         Date jobStartTime = hoursAgo(2);
         Date jobEndTime = minutesAgo(5); // Job finishes AFTER pipeline (pipeline ends at 28 min ago)
         Date pipelineStartTime = minutesAgo(30);
@@ -184,7 +185,7 @@ public class BuildChainMembershipTest {
             .isTriggeredBySnapshotDependency(pipelineId)
             .withStartDate(jobStartTime)
             .withEndDate(jobEndTime)
-            .withQueueDate(hoursAgo(3))
+            .withQueueDate(jobQueueTime)
             .build();
         
         SRunningBuild pipeline = new MockBuild.Builder(pipelineId, PIPELINE)
@@ -192,17 +193,18 @@ public class BuildChainMembershipTest {
             .isTriggeredByUser()
             .withStartDate(pipelineStartTime)
             .withEndDate(pipelineEndTime)
+            .withQueueDate(pipelineStartTime)  // Pipeline queued when it started
             .withAllDependencies(Arrays.asList(job))
             .build();
         
         // When
         List<Webhook> webhooks = buildChainProcessor.createWebhooks(pipeline);
         
-        // Then: Pipeline webhook should span from job start to job end
+        // Then: Pipeline webhook should span from job queue time to job end
         assertThat(webhooks).hasSize(2);
         Webhook pipelineWebhook = webhooks.get(0);
         String webhookStr = pipelineWebhook.toString();
-        assertThat(webhookStr).contains("start='" + toRFC3339(jobStartTime) + "'");
+        assertThat(webhookStr).contains("start='" + toRFC3339(jobQueueTime) + "'");  // Queue time, not start time
         assertThat(webhookStr).contains("end='" + toRFC3339(jobEndTime) + "'");
     }
 

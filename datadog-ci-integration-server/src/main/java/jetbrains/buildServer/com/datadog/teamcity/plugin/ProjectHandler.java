@@ -83,8 +83,8 @@ public class ProjectHandler {
         ProcessingResult resolved = resolver.resolve(apiKeyReference);
         if (!resolved.isFullyResolved()) {
             throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for build %s",
-                            DATADOG_API_KEY_PARAM, build.getBuildId()));
+                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
+                            DATADOG_API_KEY_PARAM, project.getName(), project.getParameters()));
         }
 
         return resolved.getResult();

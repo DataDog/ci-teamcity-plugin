@@ -37,20 +37,12 @@ public class ProjectHandler {
 
     public ProjectParameters getProjectParameters(SBuild build) {
         String apiKey = getApiKey(build);
-        
-        // Site is a regular parameter, use ParametersProvider which includes build + project hierarchy
-        String ddSite = build.getParametersProvider().get(DATADOG_SITE_PARAM);
-        if (ddSite == null) {
-            throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for build %s",
-                            DATADOG_SITE_PARAM, build.getBuildId()));
-        }
-
+        String ddSite = getBuildParameter(build, DATADOG_SITE_PARAM);
         return new ProjectParameters(apiKey, ddSite);
     }
 
     public boolean isPluginEnabled(SBuild build) {
-        String enabled = build.getParametersProvider().get(DATADOG_ENABLED_PARAM);
+        String enabled = getBuildParameter(build, DATADOG_ENABLED_PARAM, null);
         boolean isPluginEnabled = Boolean.parseBoolean(enabled);
         if (!isPluginEnabled) {
             LOG.debug(format("Plugin not enabled for build %s", build.getBuildId()));
@@ -64,6 +56,21 @@ public class ProjectHandler {
         return (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
+    }
+
+    private String getBuildParameter(SBuild build, String parameterName) {
+        String value = build.getParametersProvider().get(parameterName);
+        if (value == null) {
+            throw new IllegalArgumentException(
+                    format("Could not find required property '%s' for build %s",
+                            parameterName, build.getBuildId()));
+        }
+        return value;
+    }
+
+    private String getBuildParameter(SBuild build, String parameterName, String defaultValue) {
+        String value = build.getParametersProvider().get(parameterName);
+        return value != null ? value : defaultValue;
     }
 
     private String getApiKey(SBuild build) {

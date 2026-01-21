@@ -8,6 +8,8 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.parameters.ProcessingResult;
+import jetbrains.buildServer.parameters.ValueResolver;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
@@ -34,13 +36,9 @@ public class ProjectHandler {
     }
 
     public ProjectParameters getProjectParameters(SBuild build) {
-        String apiKey = build.getParametersProvider().get(DATADOG_API_KEY_PARAM);
-        if (apiKey == null) {
-            throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for build %s",
-                            DATADOG_API_KEY_PARAM, build.getBuildId()));
-        }
-
+        String apiKey = getApiKey(build);
+        
+        // Site is a regular parameter, use ParametersProvider which includes build + project hierarchy
         String ddSite = build.getParametersProvider().get(DATADOG_SITE_PARAM);
         if (ddSite == null) {
             throw new IllegalArgumentException(
@@ -66,6 +64,22 @@ public class ProjectHandler {
         return (ProjectEx) Optional.ofNullable(build.getProjectId())
             .map(projectManager::findProjectById)
             .orElse(projectManager.getRootProject());
+    }
+
+    private String getApiKey(SBuild build) {
+        // API key is a password parameter and needs ValueResolver to get the unscrambled value
+        // ValueResolver resolves from the project hierarchy, which includes job-level overrides
+        ProjectEx project = getProject(build);
+        String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
+        ValueResolver resolver = project.getValueResolver();
+        ProcessingResult resolved = resolver.resolve(apiKeyReference);
+        if (!resolved.isFullyResolved()) {
+            throw new IllegalArgumentException(
+                    format("Could not find required property '%s' for build %s",
+                            DATADOG_API_KEY_PARAM, build.getBuildId()));
+        }
+        
+        return resolved.getResult();
     }
 
     public static class ProjectParameters {

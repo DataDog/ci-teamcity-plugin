@@ -111,6 +111,7 @@ public class MockBuild {
         private Date startDate = DEFAULT_START_DATE;
         private Date endDate = DEFAULT_END_DATE;
         private Date queueDate = DEFAULT_QUEUE_DATE;
+        private boolean queueDateExplicitlySet = false;  // Track if queue date was explicitly set
         private Branch branchMock;
         private List<String> tags = new ArrayList<>();
         private final List<SVcsModification> changesListMock = new ArrayList<>();
@@ -204,6 +205,7 @@ public class MockBuild {
 
         public Builder withQueueDate(Date queueDate) {
             this.queueDate = queueDate;
+            this.queueDateExplicitlySet = true;
             return this;
         }
 
@@ -289,6 +291,17 @@ public class MockBuild {
         }
 
         public SRunningBuild build() {
+            // For PIPELINE (composite) builds, queue date should equal start date unless explicitly set
+            // Pipelines don't wait in a queue - they start immediately when triggered
+            if (this.isComposite && !this.queueDateExplicitlySet) {
+                this.queueDate = this.startDate;
+            }
+            // For JOB builds, if queue date wasn't explicitly set, ensure it's never later than start date
+            // Use min(DEFAULT_QUEUE_DATE, startDate) to preserve default queue time for standard cases
+            // while ensuring early-starting jobs have queue time = 0
+            else if (!this.queueDateExplicitlySet && this.startDate != DEFAULT_START_DATE) {
+                this.queueDate = this.startDate.before(DEFAULT_QUEUE_DATE) ? this.startDate : DEFAULT_QUEUE_DATE;
+            }
             return fromBuilder(this);
         }
     }

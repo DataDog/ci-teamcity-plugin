@@ -464,10 +464,11 @@ public class DatadogServerAdapterProcessingTest {
 
     @Test
     public void shouldSendWebhooksAccountingForStartOffset() {
-        // Setup: [job -> pipeline]. The job started before the pipeline, but it is within the offset of 3s
+        // Setup: [job -> pipeline]. The job started before the pipeline - pipeline timing should expand to include job
         Date jobStart = new Date(4000);
         Date pipelineStart = new Date(5000);
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
             .withStartDate(jobStart)
             .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
@@ -488,7 +489,7 @@ public class DatadogServerAdapterProcessingTest {
             new PipelineWebhook(
                 DEFAULT_NAME,
                 defaultUrl(pipelineBuild),
-                toRFC3339(pipelineStart),
+                toRFC3339(jobStart),  // Pipeline start should be earliest (job start)
                 toRFC3339(DEFAULT_END_DATE),
                 "serverID-2",
                 "2",
@@ -503,7 +504,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                2000));
+                2000));  // Queue time = jobStart(4000) - DEFAULT_QUEUE_DATE(2000) = 2000ms
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);

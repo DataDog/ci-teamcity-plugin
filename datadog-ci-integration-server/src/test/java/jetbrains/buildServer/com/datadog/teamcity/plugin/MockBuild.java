@@ -27,7 +27,9 @@ import jetbrains.buildServer.vcs.impl.VcsModificationEx;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR_PROPERTY;
@@ -147,6 +149,31 @@ public class MockBuild {
 
         public Builder isTriggeredByRetry() {
             when(triggeredBy.getParameters()).thenReturn(Collections.singletonMap("type", "retry"));
+            return this;
+        }
+
+        public Builder isTriggeredBySnapshotDependency(long triggeringBuildId) {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "snapshotDependency");
+            params.put("buildId", String.valueOf(triggeringBuildId));
+            params.put("userId", "1");
+            when(triggeredBy.getParameters()).thenReturn(params);
+            return this;
+        }
+
+        public Builder isTriggeredBySchedule() {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "schedule");
+            params.put("triggerId", "TRIGGER_1");
+            when(triggeredBy.getParameters()).thenReturn(params);
+            return this;
+        }
+
+        public Builder isTriggeredByUser() {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "user");
+            params.put("userId", "1");
+            when(triggeredBy.getParameters()).thenReturn(params);
             return this;
         }
 

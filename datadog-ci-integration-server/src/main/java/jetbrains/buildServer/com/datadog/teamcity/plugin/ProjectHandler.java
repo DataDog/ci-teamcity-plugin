@@ -75,16 +75,14 @@ public class ProjectHandler {
 
     private String getApiKey(SBuild build) {
         // API key is a password parameter and needs ValueResolver to get the unscrambled value
-        // ValueResolver resolves from the project hierarchy, job level overrides are
-        // not possible.
-        ProjectEx project = getProject(build);
+        // Use build's own ValueResolver which is build-aware and should support job-level overrides
         String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
-        ValueResolver resolver = project.getValueResolver();
+        ValueResolver resolver = build.getValueResolver();
         ProcessingResult resolved = resolver.resolve(apiKeyReference);
         if (!resolved.isFullyResolved()) {
             throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for project '%s'. Project parameters: %s",
-                            DATADOG_API_KEY_PARAM, project.getName(), project.getParameters()));
+                    format("Could not find required property '%s' for build %s",
+                            DATADOG_API_KEY_PARAM, build.getBuildId()));
         }
 
         return resolved.getResult();

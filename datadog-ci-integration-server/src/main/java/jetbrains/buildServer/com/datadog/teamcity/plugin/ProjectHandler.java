@@ -36,7 +36,7 @@ public class ProjectHandler {
     }
 
     public ProjectParameters getProjectParameters(SBuild build) {
-        String apiKey = getApiKey(build);
+        String apiKey = getBuildParameter(build, DATADOG_API_KEY_PARAM);
         String ddSite = getBuildParameter(build, DATADOG_SITE_PARAM);
         return new ProjectParameters(apiKey, ddSite);
     }
@@ -59,32 +59,32 @@ public class ProjectHandler {
     }
 
     private String getBuildParameter(SBuild build, String parameterName) {
+        // Check parameter exists first
         String value = build.getParametersProvider().get(parameterName);
         if (value == null) {
             throw new IllegalArgumentException(
                     format("Could not find required property '%s' for build %s",
                             parameterName, build.getBuildId()));
         }
-        return value;
+
+        return resolveBuildParameter(build, parameterName);
     }
 
     private String getBuildParameter(SBuild build, String parameterName, String defaultValue) {
+        // Check if parameter exists
         String value = build.getParametersProvider().get(parameterName);
-        return value != null ? value : defaultValue;
-    }
-
-    private String getApiKey(SBuild build) {
-        // API key is a password parameter and needs ValueResolver to get the unscrambled value
-        // Use build's own ValueResolver which is build-aware and should support job-level overrides
-        String apiKeyReference = String.format("%%%s%%", DATADOG_API_KEY_PARAM);
-        ValueResolver resolver = build.getValueResolver();
-        ProcessingResult resolved = resolver.resolve(apiKeyReference);
-        if (!resolved.isFullyResolved()) {
-            throw new IllegalArgumentException(
-                    format("Could not find required property '%s' for build %s",
-                            DATADOG_API_KEY_PARAM, build.getBuildId()));
+        if (value == null) {
+            return defaultValue;
         }
 
+        return resolveBuildParameter(build, parameterName);
+    }
+
+    private String resolveBuildParameter(SBuild build, String parameterName) {
+        // Use build's ValueResolver to resolve any %references% and handle password parameters
+        String paramReference = String.format("%%%s%%", parameterName);
+        ValueResolver resolver = build.getValueResolver();
+        ProcessingResult resolved = resolver.resolve(paramReference);
         return resolved.getResult();
     }
 

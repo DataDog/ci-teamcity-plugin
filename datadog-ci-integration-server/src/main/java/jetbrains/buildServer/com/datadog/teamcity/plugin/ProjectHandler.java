@@ -63,11 +63,22 @@ public class ProjectHandler {
     }
 
     private String resolveBuildParameter(SBuild build, String parameterName) {
-        // Use build's ValueResolver to resolve any %references% and handle password parameters
+        // Resolve any %foo% references or passwords in parameters
+        // Try build's ValueResolver first to support job-level overrides
         String paramReference = String.format("%%%s%%", parameterName);
-        ValueResolver resolver = build.getValueResolver();
-        ProcessingResult resolved = resolver.resolve(paramReference);
-        return resolved.getResult();
+        ValueResolver buildResolver = build.getValueResolver();
+        ProcessingResult resolved = buildResolver.resolve(paramReference);
+        String result = resolved.getResult();
+        
+        // If the value is scrambled (password parameter), fall back to project resolver
+        // Build resolver doesn't have access to unscramble passwords
+        if ("*******".equals(result)) {
+            ValueResolver projectResolver = build.getBuildType().getProject().getValueResolver();
+            resolved = projectResolver.resolve(paramReference);
+            result = resolved.getResult();
+        }
+        
+        return result;
     }
 
     public static class ProjectParameters {

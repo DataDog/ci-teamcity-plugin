@@ -10,13 +10,8 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.parameters.ProcessingResult;
 import jetbrains.buildServer.parameters.ValueResolver;
-import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SBuild;
-import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.Nonnull;
-import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -28,12 +23,6 @@ public class ProjectHandler {
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
     protected static final String DATADOG_ENABLED_PARAM = "datadog.ci.enabled";
-
-    private final ProjectManager projectManager;
-
-    public ProjectHandler(ProjectManager projectManager) {
-        this.projectManager = projectManager;
-    }
 
     public ProjectParameters getProjectParameters(SBuild build) {
         String apiKey = getBuildParameter(build, DATADOG_API_KEY_PARAM);
@@ -49,13 +38,6 @@ public class ProjectHandler {
         }
 
         return isPluginEnabled;
-    }
-
-    @Nonnull
-    private ProjectEx getProject(SBuild build) {
-        return (ProjectEx) Optional.ofNullable(build.getProjectId())
-            .map(projectManager::findProjectById)
-            .orElse(projectManager.getRootProject());
     }
 
     private String getBuildParameter(SBuild build, String parameterName) {

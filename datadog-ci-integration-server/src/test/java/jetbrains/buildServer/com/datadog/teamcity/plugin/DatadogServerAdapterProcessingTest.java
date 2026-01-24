@@ -91,7 +91,7 @@ public class DatadogServerAdapterProcessingTest {
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
         when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, 20));
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
@@ -159,7 +159,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -186,7 +186,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -217,7 +217,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -262,7 +262,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         JobWebhook secondJobWebhook = new JobWebhook(
             DEFAULT_NAME,
@@ -326,7 +326,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         // First job should be removed as it started before the pipeline (accounting for 3s offset)
         JobWebhook secondJobWebhook = new JobWebhook(
@@ -376,7 +376,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         // Second job should be removed as the build is composite
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -423,7 +423,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         // Second job should be removed as the build is personal
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -471,7 +471,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -516,7 +516,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
          JobWebhook jobWebhook = new JobWebhook(
              DEFAULT_NAME,
@@ -565,7 +565,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -606,7 +606,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
@@ -639,7 +639,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         // Job webhook should not be sent as it has an invalid end date
         PipelineWebhook expectedWebhook = new PipelineWebhook(
@@ -677,7 +677,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
                 new PipelineWebhook(
@@ -723,7 +723,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(20));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
                 new PipelineWebhook(
@@ -748,5 +748,20 @@ public class DatadogServerAdapterProcessingTest {
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
+    }
+
+    @Test
+    public void shouldPassBatchSizeParameterToDatadogClient() {
+        int customBatchSize = 2;
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, customBatchSize));
+
+        SRunningBuild pipelineBuild = new MockBuild.Builder(1, PIPELINE).build();
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(any(), eq(TEST_API_KEY), eq(TEST_DD_SITE), eq(customBatchSize));
     }
 }

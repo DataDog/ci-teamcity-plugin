@@ -103,7 +103,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE, 20);
 
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(1))
             .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));

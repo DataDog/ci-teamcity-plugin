@@ -48,10 +48,6 @@ public class DatadogClient {
         this.clientExecutor = clientExecutor;
     }
 
-    public void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite) {
-        sendWebhooksAsync(webhooks, apiKey, ddSite, DEFAULT_BATCH_SIZE);
-    }
-    
     @VisibleForTesting
     protected void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite, int batchSize) {
         // Split webhooks into batches and send each batch asynchronously

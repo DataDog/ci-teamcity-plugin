@@ -31,7 +31,6 @@ public class DatadogClient {
     private static final Logger LOG = Logger.getInstance(DatadogClient.class.getName());
     private static final String TEAMCITY_PROVIDER = "teamcity";
     private static final String WEBHOOK_INTAKE_BASE_URL = "https://webhook-intake.%s/api/v2/webhook";
-    private static final int DEFAULT_BATCH_SIZE = 20;
 
     protected static final String DD_API_KEY_HEADER = "DD-API-KEY";
     protected static final String DD_CI_PROVIDER_HEADER = "DD-CI-PROVIDER-NAME";

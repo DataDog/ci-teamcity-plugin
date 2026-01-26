@@ -28,6 +28,9 @@ public class ProjectHandler {
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
     protected static final String DATADOG_ENABLED_PARAM = "datadog.ci.enabled";
+    protected static final String DATADOG_BATCH_SIZE_PARAM = "datadog.ci.batch.size";
+    
+    private static final int DEFAULT_BATCH_SIZE = 20;
 
     private final ProjectManager projectManager;
 
@@ -45,8 +48,10 @@ public class ProjectHandler {
                     format("Could not find required property '%s' for project '%s'. Project parameters: %s",
                             DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
         }
+        
+        int batchSize = getBatchSize(project);
 
-        return new ProjectParameters(apiKey, ddSite);
+        return new ProjectParameters(apiKey, ddSite, batchSize);
     }
 
     public boolean isPluginEnabled(SBuild build) {
@@ -79,14 +84,34 @@ public class ProjectHandler {
 
         return resolved.getResult();
     }
+    
+    private int getBatchSize(ProjectEx project) {
+        String batchSizeStr = project.getParameterValue(DATADOG_BATCH_SIZE_PARAM);
+        if (batchSizeStr == null || batchSizeStr.trim().isEmpty()) {
+            return DEFAULT_BATCH_SIZE;
+        }
+        
+        try {
+            int batchSize = Integer.parseInt(batchSizeStr.trim());
+            if (batchSize > 0) {
+                return batchSize;
+            }
+        } catch (NumberFormatException e) {}
+        
+        LOG.warn(format("Invalid batch size value '%s' for project '%s'. Using default: %d", 
+            batchSizeStr, project.getName(), DEFAULT_BATCH_SIZE));
+        return DEFAULT_BATCH_SIZE;
+    }
 
     public static class ProjectParameters {
         private final String apiKey;
         private final String ddSite;
+        private final int batchSize;
 
-        public ProjectParameters(String apiKey, String ddSite) {
+        public ProjectParameters(String apiKey, String ddSite, int batchSize) {
             this.apiKey = apiKey;
             this.ddSite = ddSite;
+            this.batchSize = batchSize;
         }
 
         public String apiKey() {
@@ -95,6 +120,10 @@ public class ProjectHandler {
 
         public String ddSite() {
             return ddSite;
+        }
+        
+        public int batchSize() {
+            return batchSize;
         }
     }
 }

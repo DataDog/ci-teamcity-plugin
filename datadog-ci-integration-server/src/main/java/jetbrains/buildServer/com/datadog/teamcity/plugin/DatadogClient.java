@@ -47,40 +47,46 @@ public class DatadogClient {
         this.clientExecutor = clientExecutor;
     }
 
-    public void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite) {
-        for (Webhook webhook : webhooks) {
-            clientExecutor.submit(() -> sendWebhookWithRetries(webhook, apiKey, ddSite));
+    @VisibleForTesting
+    protected void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite, int batchSize) {
+        // Split webhooks into batches and send each batch asynchronously
+        for (int i = 0; i < webhooks.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, webhooks.size());
+            List<Webhook> batch = webhooks.subList(i, end);
+            clientExecutor.submit(() -> sendWebhookBatchWithRetries(batch, apiKey, ddSite));
         }
     }
 
     @VisibleForTesting
-    protected boolean sendWebhookWithRetries(Webhook webhook, String apiKey, String ddSite) {
+    protected boolean sendWebhookBatchWithRetries(List<Webhook> webhookBatch, String apiKey, String ddSite) {
         String url = format(WEBHOOK_INTAKE_BASE_URL, ddSite);
-        String payload = serialize(webhook);
+        String payload = serializeBatch(webhookBatch);
         HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
+        
+        String batchDescription = getBatchDescription(webhookBatch);
 
         int currentAttempt = 0;
         while (currentAttempt <= retryInfo.maxRetries) {
             try {
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
                 if (response.getStatusCode().is2xxSuccessful()) {
-                    LOG.info(format("Successfully sent webhook with id '%s' to '%s'", webhook.id(), url));
+                    LOG.info(format("Successfully sent webhook batch %s to '%s'", batchDescription, url));
                     return true;
                 } else if (response.getStatusCode().is5xxServerError()) {
-                    LOG.warn(format("Could not send webhook with id '%s' to '%s'. " +
+                    LOG.warn(format("Could not send webhook batch %s to '%s'. " +
                                     "Status code: '%s', Retry number %d/%d",
-                            webhook.id(), url, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
+                            batchDescription, url, response.getStatusCode(), currentAttempt, retryInfo.maxRetries));
 
                     sleepSeconds(retryInfo.backoffSeconds);
                 } else {
                     // Status code is different from 5xx, so we won't retry
-                    LOG.warn(format("Could not send webhook with id '%s' to url '%s'. " +
-                                    "Status code: '%s'.", webhook.id(), url, response.getStatusCode()));
+                    LOG.warn(format("Could not send webhook batch %s to url '%s'. " +
+                                    "Status code: '%s'.", batchDescription, url, response.getStatusCode()));
                     return false;
                 }
             } catch (RestClientException ex) {
-                LOG.error(format("Exception occurred while sending webhooks with id '%s' to url '%s'. " +
-                                "Retry number %d/%d: ", webhook.id(), url, currentAttempt, retryInfo.maxRetries), ex);
+                LOG.error(format("Exception occurred while sending webhook batch %s to url '%s'. " +
+                                "Retry number %d/%d: ", batchDescription, url, currentAttempt, retryInfo.maxRetries), ex);
                 sleepSeconds(retryInfo.backoffSeconds);
             }
 
@@ -88,6 +94,13 @@ public class DatadogClient {
         }
 
         return false;
+    }
+    
+    private String getBatchDescription(List<Webhook> webhookBatch) {
+        return format("batch of %d webhook%s, starting with id '%s'", 
+            webhookBatch.size(), 
+            webhookBatch.size() == 1 ? "" : "s",
+            webhookBatch.get(0).id());
     }
 
     private HttpHeaders getHeaders(String apiKey) {
@@ -98,11 +111,12 @@ public class DatadogClient {
         return headers;
     }
 
-    private String serialize(Webhook entity) {
+    private String serializeBatch(List<Webhook> webhookBatch) {
         try {
-            return objectMapper.writeValueAsString(entity);
+            // Always serialize as array - Datadog API accepts both single objects and arrays
+            return objectMapper.writeValueAsString(webhookBatch);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(format("Could not serialize the content of the entity: %s", entity), e);
+            throw new RuntimeException(format("Could not serialize the webhook batch: %s", webhookBatch), e);
         }
     }
 

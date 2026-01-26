@@ -28,6 +28,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.util.List;
+
+import static java.util.Collections.singletonList;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -100,7 +103,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE, 20);
 
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(1))
             .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
@@ -116,9 +119,9 @@ public class DatadogClientTest {
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
             .thenReturn(ResponseEntity.ok("Successful Request"));
 
-        // When
+        // When - use batch size of 1 to send each webhook separately for this test
         List<Webhook> webhooks = Arrays.asList(completeJob(), completePipeline());
-        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE, 1);
 
         // Then
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(2))
@@ -135,6 +138,32 @@ public class DatadogClientTest {
     }
 
     @Test
+    public void shouldBatchWebhooksIntoMultipleRequests() {
+        // Setup
+        when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
+            .thenReturn(ResponseEntity.ok("Successful Request"));
+
+        // When - send 3 webhooks with batch size of 2 (should result in 2 requests: 2+1)
+        List<Webhook> webhooks = Arrays.asList(defaultPipeline(), completeJob(), completePipeline());
+        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE, 2);
+
+        // Then - verify 2 HTTP requests were made
+        verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(2))
+            .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
+
+        // Verify batching: first batch should have 2 webhooks, second batch should have 1
+        List<HttpEntity<String>> requests = requestCaptor.getAllValues();
+        assertThat(requests).hasSize(2);
+        
+        // Count webhooks in each batch by counting array elements
+        for (HttpEntity<String> request : requests) {
+            String body = request.getBody();
+            // Simple check: body should start with '[' and end with ']'
+            assertThat(body.trim()).startsWith("[").endsWith("]");
+        }
+    }
+
+    @Test
     public void shouldSendWebhookForPipeline() {
         // Setup
         when(restTemplateMock.exchange(anyString(), eq(POST), any(), Matchers.<Class<String>>any()))
@@ -142,7 +171,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
@@ -170,7 +199,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
@@ -198,7 +227,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(2))
@@ -226,7 +255,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(1))
@@ -243,7 +272,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), mockApiKey, "datad0g.com");
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
@@ -259,7 +288,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))
@@ -286,7 +315,7 @@ public class DatadogClientTest {
 
         // When
         JobWebhook jobWebhook = completeJob();
-        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookBatchWithRetries(singletonList(jobWebhook), TEST_API_KEY, TEST_DD_SITE);
 
         // Then
         verify(restTemplateMock, times(1))

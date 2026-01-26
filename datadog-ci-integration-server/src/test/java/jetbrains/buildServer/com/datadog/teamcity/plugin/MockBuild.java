@@ -8,6 +8,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.BuildProblemData;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.BuildStep.StepStatus;
 import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.parameters.ParametersProvider;
 import jetbrains.buildServer.serverSide.Branch;

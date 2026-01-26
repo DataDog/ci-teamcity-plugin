@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TeamCity Logging Configuration for Datadog CI Integration Plugin
+  
+  Usage:
+  1. Copy this file to: <TeamCity Data Directory>/config/_logging/debug-datadog-ci-integration.xml
+  2. Restart TeamCity server (or logs will auto-reload after ~30 seconds)
+  3. Plugin logs will appear in: <TeamCity Data Directory>/logs/teamcity-datadog-ci.log
+  
+  This configuration enables DEBUG-level logging for the Datadog plugin and creates
+  a dedicated log file separate from the main server logs.
+-->
+<Configuration status="INFO">
+  <Appenders>
+    <DelegateAppender>
+      <!-- Dedicated log file for Datadog CI Integration plugin -->
+      <RollingFile name="DATADOG_CI.LOG" 
+                   fileName="${sys:teamcity_logs}/teamcity-datadog-ci.log" 
+                   filePattern="${sys:teamcity_logs}/teamcity-datadog-ci.log.%i" 
+                   append="true" 
+                   createOnDemand="true">
+        <PatternLayout pattern="[%d] %6p [%30.30t] - %30.30c - %m%n%ex" charset="UTF-8" />
+        <SizeBasedTriggeringPolicy size="10 MB" />
+        <!-- Keep up to 10 rotated log files -->
+        <DefaultRolloverStrategy max="10" fileIndex="min" />
+      </RollingFile>
+    </DelegateAppender>
+  </Appenders>
+  
+  <Loggers>
+    <!-- Logger for all Datadog plugin classes -->
+    <Logger name="jetbrains.buildServer.com.datadog.teamcity.plugin" 
+            level="DEBUG" 
+            additivity="false">
+      <AppenderRef ref="DATADOG_CI.LOG" />
+    </Logger>
+  </Loggers>
+</Configuration>

@@ -56,12 +56,12 @@ public class DatadogServerAdapter extends BuildServerAdapter {
             return;
         }
 
-        if (!isLastCompositeBuild(build)) {
+        if (!isProcessableBuild(build)) {
             LOG.info(format("Ignoring build with id '%s' and name '%s'", build.getBuildId(), buildName(build)));
             return;
         }
 
-        // At this point, we know it's the final composite build of the chain
+        // At this point, we know it's a build we should process
         SBuild pipelineBuild = buildsManager.findBuildInstanceById(build.getBuildId());
         if (pipelineBuild == null) {
             // This should not happen, but better to check for it anyway
@@ -72,9 +72,22 @@ public class DatadogServerAdapter extends BuildServerAdapter {
         buildChainProcessor.process(pipelineBuild);
     }
 
-    private boolean isLastCompositeBuild(SBuild build) {
-        return build.isCompositeBuild() &&
-            build.getBuildPromotion().getNumberOfDependedOnMe() == 0 &&
-            !build.isPersonal();
+    private boolean isProcessableBuild(SBuild build) {
+        // Personal builds are never processed
+        if (build.isPersonal()) {
+            return false;
+        }
+
+        // Must be the final build in the chain (no dependents)
+        if (build.getBuildPromotion().getNumberOfDependedOnMe() != 0) {
+            return false;
+        }
+
+        // If it's a non-composite build, reject if feature is not enabled.
+        if (!build.isCompositeBuild() && !projectHandler.isNonCompositeEnabled(build)) {
+            return false;
+        }
+
+        return true;
     }
 }

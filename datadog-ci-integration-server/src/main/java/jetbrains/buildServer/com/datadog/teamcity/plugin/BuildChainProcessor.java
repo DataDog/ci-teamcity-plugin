@@ -215,10 +215,17 @@ public class BuildChainProcessor {
         
         LOG.info(format("Chain membership resolved after %d iterations", iteration));
         
-        // Return accepted builds (excluding the pipeline build itself)
-        List<SBuild> chainMembers = acceptedBuilds.values().stream()
-            .filter(build -> build.getBuildId() != pipelineBuild.getBuildId())
-            .collect(toList());
+        // Return all accepted builds (for composite head builds, exclude the head; for non-composite, include it)
+        List<SBuild> chainMembers;
+        if (pipelineBuild.isCompositeBuild()) {
+            // Composite builds: exclude the head build (it's just the pipeline frame)
+            chainMembers = acceptedBuilds.values().stream()
+                .filter(build -> build.getBuildId() != pipelineBuild.getBuildId())
+                .collect(toList());
+        } else {
+            // Non-composite builds: include the head build as a job
+            chainMembers = new ArrayList<>(acceptedBuilds.values());
+        }
             
         return new ChainMembership(chainMembers, minQueueTime, maxFinishTime);
     }

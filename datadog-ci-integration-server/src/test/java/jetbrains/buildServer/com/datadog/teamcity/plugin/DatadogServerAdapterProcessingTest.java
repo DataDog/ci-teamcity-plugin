@@ -820,4 +820,118 @@ public class DatadogServerAdapterProcessingTest {
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
     }
+
+    @Test
+    public void shouldProcessNonCompositeBuildWhenFeatureEnabled() {
+        // Setup: Non-composite job with feature enabled
+        SRunningBuild nonCompositeBuild = new MockBuild.Builder(1, JOB)
+            .withNumOfDependents(0)  // Must be final build in chain
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(nonCompositeBuild);
+        when(projectHandlerMock.isNonCompositeEnabled(nonCompositeBuild)).thenReturn(true);
+
+        // When
+        datadogServerAdapter.buildFinished(nonCompositeBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        // Should create 1 pipeline webhook and 1 job webhook for the non-composite build itself
+        PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
+            DEFAULT_NAME,
+            defaultUrl(nonCompositeBuild),
+            toRFC3339(DEFAULT_QUEUE_DATE),  // Pipeline start uses job's queue time
+            toRFC3339(DEFAULT_END_DATE),
+            "serverID-1",
+            "1",
+            NO_PARTIAL_RETRY,
+            PipelineStatus.SUCCESS);
+
+        JobWebhook expectedJobWebhook = new JobWebhook(
+            DEFAULT_NAME,
+            defaultUrl(nonCompositeBuild),
+            toRFC3339(DEFAULT_START_DATE),  // Job start time
+            toRFC3339(DEFAULT_END_DATE),
+            "serverID-1",
+            DEFAULT_NAME,
+            "serverID-1",
+            JobStatus.SUCCESS,
+            DEFAULT_QUEUE_TIME);  // Queue time = start - queue = 3000 - 2000 = 1000ms
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).hasSize(2).containsExactlyInAnyOrder(expectedPipelineWebhook, expectedJobWebhook);
+    }
+
+    @Test
+    public void shouldIgnoreNonCompositeBuildWhenFeatureDisabled() {
+        // Setup: Non-composite job with feature disabled (default)
+        SRunningBuild nonCompositeBuild = new MockBuild.Builder(1, JOB)
+            .withNumOfDependents(0)
+            .build();
+        when(projectHandlerMock.isNonCompositeEnabled(nonCompositeBuild)).thenReturn(false);
+
+        // When
+        datadogServerAdapter.buildFinished(nonCompositeBuild);
+
+        // Then: Should not process the build
+        verifyZeroInteractions(datadogClientMock, buildsManagerMock);
+    }
+
+    @Test
+    public void shouldProcessNonCompositeBuildWithDependencies() {
+        // Setup: [dependency job -> non-composite job (feature enabled)]
+        SRunningBuild dependencyBuild = new MockBuild.Builder(1, JOB)
+            .isTriggeredBySnapshotDependency(2)
+            .build();
+        SRunningBuild nonCompositeBuild = new MockBuild.Builder(2, JOB)
+            .withNumOfDependents(0)  // Must be final build in chain
+            .withAllDependencies(singletonList(dependencyBuild))
+            .build();
+
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(nonCompositeBuild);
+        when(projectHandlerMock.isNonCompositeEnabled(nonCompositeBuild)).thenReturn(true);
+
+        // When
+        datadogServerAdapter.buildFinished(nonCompositeBuild);
+
+        // Then
+        verify(datadogClientMock, times(1))
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+
+        // Should create 1 pipeline webhook and 2 job webhooks (the non-composite build + its dependency)
+        List<Webhook> expectedWebhooks = Arrays.asList(
+            new PipelineWebhook(
+                DEFAULT_NAME,
+                defaultUrl(nonCompositeBuild),
+                toRFC3339(DEFAULT_QUEUE_DATE),
+                toRFC3339(DEFAULT_END_DATE),
+                "serverID-2",
+                "2",
+                NO_PARTIAL_RETRY,
+                PipelineStatus.SUCCESS),
+            new JobWebhook(
+                DEFAULT_NAME,
+                defaultUrl(dependencyBuild),
+                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_END_DATE),
+                "serverID-2",
+                DEFAULT_NAME,
+                "serverID-1",
+                JobStatus.SUCCESS,
+                DEFAULT_QUEUE_TIME),
+            new JobWebhook(
+                DEFAULT_NAME,
+                defaultUrl(nonCompositeBuild),
+                toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(DEFAULT_END_DATE),
+                "serverID-2",
+                DEFAULT_NAME,
+                "serverID-2",
+                JobStatus.SUCCESS,
+                DEFAULT_QUEUE_TIME));
+
+        List<Webhook> webhooksSent = webhooksCaptor.getValue();
+        assertThat(webhooksSent).hasSize(3).hasSameElementsAs(expectedWebhooks);
+    }
 }

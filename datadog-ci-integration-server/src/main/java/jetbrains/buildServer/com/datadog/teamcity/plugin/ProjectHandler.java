@@ -28,6 +28,7 @@ public class ProjectHandler {
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
     protected static final String DATADOG_ENABLED_PARAM = "datadog.ci.enabled";
+    protected static final String DATADOG_ENABLE_NON_COMPOSITE_PARAM = "datadog.ci.enable.non-composite";
 
     private final ProjectManager projectManager;
 
@@ -58,6 +59,11 @@ public class ProjectHandler {
         }
 
         return isPluginEnabled;
+    }
+
+    public boolean isNonCompositeEnabled(SBuild build) {
+        String enabled = build.getParametersProvider().get(DATADOG_ENABLE_NON_COMPOSITE_PARAM);
+        return Boolean.parseBoolean(enabled);
     }
 
     @Nonnull

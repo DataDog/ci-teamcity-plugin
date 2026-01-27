@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -79,6 +80,9 @@ public class BuildChainProcessor {
     }
 
     public void process(SBuild pipelineBuild) {
+        LOG.info("=== Processing Pipeline Build ===");
+        logTriggeredByInfo(pipelineBuild, "PIPELINE");
+        
         ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild);
         List<Webhook> webhooks = createWebhooks(pipelineBuild);
 
@@ -89,10 +93,27 @@ public class BuildChainProcessor {
      * Creates all the webhooks for a build chain. There will be 1 pipeline webhook for the final
      * composite build and <em>N</em> webhooks for the eligible job builds in the chain.
      */
-    private List<Webhook> createWebhooks(SBuild pipelineBuild) {
-        PipelineWebhook pipelineWebhook = createPipelineWebhook(pipelineBuild);
+    List<Webhook> createWebhooks(SBuild pipelineBuild) {
+        // First, gather all builds in the chain to get accurate timing information
+        LOG.info("=== Processing Dependencies ===");
+        ChainMembership chainInfo = gatherChainMembers(pipelineBuild);
+        
+        LOG.info(format("Found %d builds in trigger chain", chainInfo.acceptedBuilds.size()));
+        LOG.info(format("Chain queue time: %s", chainInfo.minQueueTime));
+        LOG.info(format("Chain end time: %s", chainInfo.maxFinishTime));
+        
+        // Create pipeline webhook with expanded timing from entire chain
+        PipelineWebhook pipelineWebhook = createPipelineWebhook(pipelineBuild, chainInfo);
         List<Webhook> webhooks = new ArrayList<>(singletonList(pipelineWebhook));
-        webhooks.addAll(createJobWebhooks(pipelineBuild));
+        
+        // Create job webhooks for all accepted chain members
+        String pipelineName = buildName(pipelineBuild);
+        String pipelineID = buildID(pipelineBuild);
+        List<JobWebhook> jobWebhooks = chainInfo.acceptedBuilds.stream()
+            .filter(build -> !shouldBeIgnored(build))
+            .map(job -> createJobWebhook(job, pipelineName, pipelineID))
+            .collect(toList());
+        webhooks.addAll(jobWebhooks);
 
         // Adding git information to all webhooks
         Optional<GitInfo> gitInfoOptional = gitInformationExtractor.extractGitInfo(pipelineBuild);
@@ -101,12 +122,13 @@ public class BuildChainProcessor {
         return webhooks;
     }
 
-    private PipelineWebhook createPipelineWebhook(SBuild pipelineBuild) {
+    private PipelineWebhook createPipelineWebhook(SBuild pipelineBuild, ChainMembership chainInfo) {
+        // Use chain timing (from earliest queue time to latest finish time)
         PipelineWebhook pipelineWebhook = new PipelineWebhook(
             buildName(pipelineBuild),
             buildURL(pipelineBuild),
-            toRFC3339(pipelineBuild.getStartDate()),
-            toRFC3339(pipelineBuild.getFinishDate()),
+            toRFC3339(chainInfo.minQueueTime),
+            toRFC3339(chainInfo.maxFinishTime),
             buildID(pipelineBuild),
             String.valueOf(pipelineBuild.getBuildId()),
             isPartialRetry(pipelineBuild),
@@ -132,26 +154,137 @@ public class BuildChainProcessor {
         throw new IllegalArgumentException("Pipeline status not recognized: " + buildStatus);
     }
 
-    private List<JobWebhook> createJobWebhooks(SBuild pipelineBuild) {
-        String pipelineName = buildName(pipelineBuild);
-        String pipelineID = buildID(pipelineBuild);
-        Date pipelineStartWithOffset = pipelineStartWithOffset(pipelineBuild);
-
-        return pipelineBuild.getBuildPromotion().getAllDependencies().stream()
+    /**
+     * Recursively gathers all builds that are part of the same trigger chain.
+     * Handles diamond-shaped dependencies where a build might be visited before its triggering parent is accepted.
+     * Also tracks min/max times across all accepted builds.
+     */
+    private ChainMembership gatherChainMembers(SBuild pipelineBuild) {
+        // Start with the pipeline build as accepted
+        Map<Long, SBuild> acceptedBuilds = new HashMap<>();
+        acceptedBuilds.put(pipelineBuild.getBuildId(), pipelineBuild);
+        
+        Date minQueueTime = pipelineBuild.getQueuedDate();
+        Date maxFinishTime = pipelineBuild.getFinishDate();
+        
+        // Get all dependencies (flattened graph)
+        List<SBuild> allDependencies = pipelineBuild.getBuildPromotion().getAllDependencies().stream()
             .map(BuildPromotion::getAssociatedBuild)
             .filter(Objects::nonNull)
-            .filter(build -> !shouldBeIgnored(build, pipelineStartWithOffset))
-            .map(job -> createJobWebhook(job, pipelineName, pipelineID))
             .collect(toList());
+        
+        LOG.info(format("Total dependencies to examine: %d", allDependencies.size()));
+        
+        // Iteratively accept builds until no more can be accepted
+        // This handles diamond dependencies where we might need multiple passes
+        boolean changed = true;
+        int iteration = 0;
+        while (changed) {
+            iteration++;
+            changed = false;
+            LOG.debug(format("Chain membership iteration %d", iteration));
+            
+            for (SBuild dependency : allDependencies) {
+                // Skip if already accepted
+                if (acceptedBuilds.containsKey(dependency.getBuildId())) {
+                    continue;
+                }
+                
+                // Log trigger info for visibility
+                logTriggeredByInfo(dependency, "DEPENDENCY");
+                
+                // Check if this dependency was triggered by an accepted build
+                if (isTriggeredByAcceptedBuild(dependency, acceptedBuilds.keySet())) {
+                    LOG.info(format("Accepting build #%d '%s' into chain", dependency.getBuildId(), buildName(dependency)));
+                    acceptedBuilds.put(dependency.getBuildId(), dependency);
+                    
+                    // Update min/max times (use queue time to include time spent waiting)
+                    if (dependency.getQueuedDate().before(minQueueTime)) {
+                        minQueueTime = dependency.getQueuedDate();
+                    }
+                    if (dependency.getFinishDate() != null && dependency.getFinishDate().after(maxFinishTime)) {
+                        maxFinishTime = dependency.getFinishDate();
+                    }
+                    
+                    changed = true;
+                } else {
+                    LOG.debug(format("Build #%d '%s' not triggered by accepted build", dependency.getBuildId(), buildName(dependency)));
+                }
+            }
+        }
+        
+        LOG.info(format("Chain membership resolved after %d iterations", iteration));
+        
+        // Return all accepted builds (for composite head builds, exclude the head; for non-composite, include it)
+        List<SBuild> chainMembers;
+        if (pipelineBuild.isCompositeBuild()) {
+            // Composite builds: exclude the head build (it's just the pipeline frame)
+            chainMembers = acceptedBuilds.values().stream()
+                .filter(build -> build.getBuildId() != pipelineBuild.getBuildId())
+                .collect(toList());
+        } else {
+            // Non-composite builds: include the head build as a job
+            chainMembers = new ArrayList<>(acceptedBuilds.values());
+        }
+            
+        return new ChainMembership(chainMembers, minQueueTime, maxFinishTime);
+    }
+    
+    /**
+     * Checks if a build was triggered by one of the accepted builds in the chain.
+     */
+    private boolean isTriggeredByAcceptedBuild(SBuild build, Set<Long> acceptedBuildIds) {
+        try {
+            jetbrains.buildServer.serverSide.TriggeredBy triggeredBy = build.getTriggeredBy();
+            if (triggeredBy == null) {
+                return false;
+            }
+            
+            Map<String, String> params = triggeredBy.getParameters();
+            
+            // Check if triggered as snapshot dependency
+            if (!"snapshotDependency".equals(params.get("type"))) {
+                return false;
+            }
+            
+            // Check if triggered by a build in the accepted set
+            String triggeringBuildId = params.get("buildId");
+            if (triggeringBuildId == null) {
+                return false;
+            }
+            
+            try {
+                long buildId = Long.parseLong(triggeringBuildId);
+                return acceptedBuildIds.contains(buildId);
+            } catch (NumberFormatException e) {
+                LOG.warn(format("Invalid buildId in trigger parameters: %s", triggeringBuildId));
+                return false;
+            }
+        } catch (Exception e) {
+            LOG.warn(format("Failed to check trigger for build %s: %s", build.getBuildId(), e.getMessage()), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Container for chain membership information
+     */
+    private static class ChainMembership {
+        final List<SBuild> acceptedBuilds;
+        final Date minQueueTime;
+        final Date maxFinishTime;
+        
+        ChainMembership(List<SBuild> acceptedBuilds, Date minQueueTime, Date maxFinishTime) {
+            this.acceptedBuilds = acceptedBuilds;
+            this.minQueueTime = minQueueTime;
+            this.maxFinishTime = maxFinishTime;
+        }
     }
 
-    private boolean shouldBeIgnored(SBuild jobBuild, Date pipelineStart) {
+    private boolean shouldBeIgnored(SBuild jobBuild) {
         return jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
             jobBuild.isPersonal() ||
-            jobBuild.getFinishDate() == null || // This can happen in case the build is canceled before it starts
-            // For partial retries, we ignore jobs started before the pipeline,
-            // as they are reused builds which were already sent by previous webhooks
-            jobBuild.getStartDate().before(pipelineStart);
+            jobBuild.getFinishDate() == null; // This can happen in case the build is canceled before it starts
     }
 
     private JobWebhook createJobWebhook(SBuild jobBuild, String pipelineName, String pipelineID) {
@@ -242,5 +375,34 @@ public class BuildChainProcessor {
     private String buildID(SBuild build) {
         // Server ID is included to avoid build ID conflicts on different TC instances within the same org
         return format("%s-%s", serverSettings.getServerUUID(), build.getBuildId());
+    }
+
+    /**
+     * Logs detailed information from TriggeredBy for debugging purposes.
+     */
+    private void logTriggeredByInfo(SBuild build, String buildType) {
+        try {
+            LOG.info(format("--- %s: Build #%d '%s' ---", buildType, build.getBuildId(), buildName(build)));
+            LOG.info(format("  Build ID: %s", buildID(build)));
+            LOG.info(format("  Is Composite: %s", build.isCompositeBuild()));
+            LOG.info(format("  Start Date: %s", build.getStartDate()));
+            LOG.info(format("  Finish Date: %s", build.getFinishDate()));
+            
+            jetbrains.buildServer.serverSide.TriggeredBy triggeredBy = build.getTriggeredBy();
+            if (triggeredBy != null) {
+                LOG.info("  TriggeredBy Information:");
+                LOG.info(format("    AsString: %s", triggeredBy.getAsString()));
+                LOG.info(format("    RawTriggeredBy: %s", triggeredBy.getRawTriggeredBy()));
+                LOG.info(format("    TriggeredDate: %s", triggeredBy.getTriggeredDate()));
+                LOG.info(format("    IsTriggeredByUser: %s", triggeredBy.isTriggeredByUser()));
+                LOG.info(format("    User: %s", triggeredBy.getUser() != null ? triggeredBy.getUser().getUsername() : "null"));
+                LOG.info(format("    TriggerId: %s", triggeredBy.getTriggerId()));
+                LOG.info(format("    Parameters: %s", triggeredBy.getParameters()));
+            } else {
+                LOG.warn("  TriggeredBy is null!");
+            }
+        } catch (Exception e) {
+            LOG.warn(format("Failed to log TriggeredBy info for build %s: %s", build.getBuildId(), e.getMessage()), e);
+        }
     }
 }

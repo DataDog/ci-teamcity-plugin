@@ -27,7 +27,9 @@ import jetbrains.buildServer.vcs.impl.VcsModificationEx;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildChainProcessor.CHECKOUT_DIR_PROPERTY;
@@ -109,6 +111,7 @@ public class MockBuild {
         private Date startDate = DEFAULT_START_DATE;
         private Date endDate = DEFAULT_END_DATE;
         private Date queueDate = DEFAULT_QUEUE_DATE;
+        private boolean queueDateExplicitlySet = false;  // Track if queue date was explicitly set
         private Branch branchMock;
         private List<String> tags = new ArrayList<>();
         private final List<SVcsModification> changesListMock = new ArrayList<>();
@@ -150,6 +153,31 @@ public class MockBuild {
             return this;
         }
 
+        public Builder isTriggeredBySnapshotDependency(long triggeringBuildId) {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "snapshotDependency");
+            params.put("buildId", String.valueOf(triggeringBuildId));
+            params.put("userId", "1");
+            when(triggeredBy.getParameters()).thenReturn(params);
+            return this;
+        }
+
+        public Builder isTriggeredBySchedule() {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "schedule");
+            params.put("triggerId", "TRIGGER_1");
+            when(triggeredBy.getParameters()).thenReturn(params);
+            return this;
+        }
+
+        public Builder isTriggeredByUser() {
+            Map<String, String> params = new HashMap<>();
+            params.put("type", "user");
+            params.put("userId", "1");
+            when(triggeredBy.getParameters()).thenReturn(params);
+            return this;
+        }
+
         public Builder withFullName(String fullName) {
             this.fullName = fullName;
             return this;
@@ -177,6 +205,7 @@ public class MockBuild {
 
         public Builder withQueueDate(Date queueDate) {
             this.queueDate = queueDate;
+            this.queueDateExplicitlySet = true;
             return this;
         }
 
@@ -262,6 +291,17 @@ public class MockBuild {
         }
 
         public SRunningBuild build() {
+            // For PIPELINE (composite) builds, queue date should equal start date unless explicitly set
+            // Pipelines don't wait in a queue - they start immediately when triggered
+            if (this.isComposite && !this.queueDateExplicitlySet) {
+                this.queueDate = this.startDate;
+            }
+            // For JOB builds, if queue date wasn't explicitly set, ensure it's never later than start date
+            // Use min(DEFAULT_QUEUE_DATE, startDate) to preserve default queue time for standard cases
+            // while ensuring early-starting jobs have queue time = 0
+            else if (!this.queueDateExplicitlySet && this.startDate != DEFAULT_START_DATE) {
+                this.queueDate = this.startDate.before(DEFAULT_QUEUE_DATE) ? this.startDate : DEFAULT_QUEUE_DATE;
+            }
             return fromBuilder(this);
         }
     }

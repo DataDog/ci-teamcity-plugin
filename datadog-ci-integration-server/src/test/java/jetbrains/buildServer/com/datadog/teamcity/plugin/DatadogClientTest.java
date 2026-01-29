@@ -9,6 +9,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.RetryInformation;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
@@ -100,7 +101,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), defaultProjectParams());
 
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(1))
             .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
@@ -118,7 +119,7 @@ public class DatadogClientTest {
 
         // When
         List<Webhook> webhooks = Arrays.asList(completeJob(), completePipeline());
-        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(webhooks, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(2))
@@ -142,7 +143,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -170,7 +171,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(2))
@@ -198,7 +199,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(2))
@@ -226,7 +227,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, new ProjectParameters(mockApiKey, "datad0g.com"));
 
         // Then
         verify(restTemplateMock, times(1))
@@ -243,7 +244,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, new ProjectParameters(mockApiKey, "datad0g.com"));
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
@@ -259,7 +260,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -286,7 +287,7 @@ public class DatadogClientTest {
 
         // When
         JobWebhook jobWebhook = completeJob();
-        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -355,4 +356,9 @@ public class DatadogClientTest {
     private static String removeWhitespaces(String input) {
         return input.replaceAll("\\s", "");
     }
+
+    private static ProjectParameters defaultProjectParams() {
+        return new ProjectParameters(TEST_API_KEY, TEST_DD_SITE);
+    }
 }
+

@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 
 public class DatadogClient {
 
@@ -47,17 +48,18 @@ public class DatadogClient {
         this.clientExecutor = clientExecutor;
     }
 
-    public void sendWebhooksAsync(List<Webhook> webhooks, String apiKey, String ddSite) {
+    @VisibleForTesting
+    protected void sendWebhooksAsync(List<Webhook> webhooks, ProjectParameters config) {
         for (Webhook webhook : webhooks) {
-            clientExecutor.submit(() -> sendWebhookWithRetries(webhook, apiKey, ddSite));
+            clientExecutor.submit(() -> sendWebhookWithRetries(webhook, config));
         }
     }
 
     @VisibleForTesting
-    protected boolean sendWebhookWithRetries(Webhook webhook, String apiKey, String ddSite) {
-        String url = format(WEBHOOK_INTAKE_BASE_URL, ddSite);
+    protected boolean sendWebhookWithRetries(Webhook webhook, ProjectParameters config) {
+        String url = format(WEBHOOK_INTAKE_BASE_URL, config.ddSite());
         String payload = serialize(webhook);
-        HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
+        HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(config.apiKey()));
 
         int currentAttempt = 0;
         while (currentAttempt <= retryInfo.maxRetries) {

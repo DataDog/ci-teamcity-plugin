@@ -96,5 +96,19 @@ public class ProjectHandler {
         public String ddSite() {
             return ddSite;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ProjectParameters that = (ProjectParameters) o;
+            return java.util.Objects.equals(apiKey, that.apiKey) &&
+                   java.util.Objects.equals(ddSite, that.ddSite);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(apiKey, ddSite);
+        }
     }
 }

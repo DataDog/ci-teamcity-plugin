@@ -48,6 +48,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NON_DE
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_SERVER_UUID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultErrorInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
@@ -90,7 +91,7 @@ public class DatadogServerAdapterProcessingTest {
         when(gitInfoExtractorMock.extractGitInfo(any())).thenReturn(Optional.empty());
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
-        when(projectHandlerMock.getProjectParameters(any()))
+        when(projectHandlerMock.getProjectParameters(any(), any()))
             .thenReturn(defaultProjectParams());
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
@@ -751,7 +752,7 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     private static ProjectParameters defaultProjectParams() {
-        return new ProjectParameters(TEST_API_KEY, TEST_DD_SITE);
+        return new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, TEST_SERVER_UUID);
     }
 }
 

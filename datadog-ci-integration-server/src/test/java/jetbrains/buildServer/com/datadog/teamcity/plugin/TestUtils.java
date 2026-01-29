@@ -24,6 +24,7 @@ public final class TestUtils {
 
     public static final String TEST_API_KEY = "test-api-key";
     public static final String TEST_DD_SITE = "datad0g.com";
+    public static final String TEST_SERVER_UUID = "test-server-uuid";
 
     public static final String DEFAULT_NAME = "Full Name";
     public static final String DEFAULT_PIPELINE_NAME = "Pipeline Name";

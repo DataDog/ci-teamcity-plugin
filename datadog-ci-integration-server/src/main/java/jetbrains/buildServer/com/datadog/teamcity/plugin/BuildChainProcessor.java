@@ -79,7 +79,7 @@ public class BuildChainProcessor {
     }
 
     public void process(SBuild pipelineBuild) {
-        ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild);
+        ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild, serverSettings.getServerUUID());
         List<Webhook> webhooks = createWebhooks(pipelineBuild);
 
         datadogClient.sendWebhooksAsync(webhooks, params);

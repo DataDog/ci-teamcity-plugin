@@ -1,35 +1,46 @@
 {
-  "level": "job",
-  "name": "Full Name",
-  "url": "http://localhost/build/1",
-  "start": "1970-01-01T00:00:03Z",
-  "end": "1970-01-01T00:00:04Z",
-  "git": {
-    "repository_url": "repository-url.com",
-    "sha": "sha",
-    "message": "git message",
-    "commit_time": "1970-01-01T00:00:01Z",
-    "author_time": "1970-01-01T00:00:01Z",
-    "committer_name": "committer-username",
-    "committer_email": "defaultemail@email.com",
-    "author_name": "committer-username",
-    "author_email": "defaultemail@email.com",
-    "default_branch": "main",
-    "branch": "main"
-  },
-  "pipeline_unique_id": "2",
-  "pipeline_name": "Pipeline Name",
-  "id": "1",
-  "status": "success",
-  "queue_time": 1000,
-  "node": {
-    "hostname": "default-hostname",
-    "name": "default-name",
-    "workspace": "default-checkout-dir"
-  },
-  "error": {
-    "message": "default-failure-message",
-    "type": "Tests Failed",
-    "domain": "provider"
-  }
+  "data": [
+    {
+      "attributes": {
+        "provider_name": "teamcity",
+        "service": "test-server-uuid",
+        "resource": {
+          "level": "job",
+          "name": "Full Name",
+          "url": "http://localhost/build/1",
+          "start": "1970-01-01T00:00:03Z",
+          "end": "1970-01-01T00:00:04Z",
+          "git": {
+            "repository_url": "repository-url.com",
+            "sha": "sha",
+            "message": "git message",
+            "commit_time": "1970-01-01T00:00:01Z",
+            "author_time": "1970-01-01T00:00:01Z",
+            "committer_name": "committer-username",
+            "committer_email": "defaultemail@email.com",
+            "author_name": "committer-username",
+            "author_email": "defaultemail@email.com",
+            "default_branch": "main",
+            "branch": "main"
+          },
+          "pipeline_unique_id": "2",
+          "pipeline_name": "Pipeline Name",
+          "id": "1",
+          "status": "success",
+          "queue_time": 1000,
+          "node": {
+            "hostname": "default-hostname",
+            "name": "default-name",
+            "workspace": "default-checkout-dir"
+          },
+          "error": {
+            "message": "default-failure-message",
+            "type": "Tests Failed",
+            "domain": "provider"
+          }
+        }
+      },
+      "type": "cipipeline_resource_request"
+    }
+  ]
 }

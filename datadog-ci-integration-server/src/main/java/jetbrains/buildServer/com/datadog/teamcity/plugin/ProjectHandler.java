@@ -35,7 +35,7 @@ public class ProjectHandler {
         this.projectManager = projectManager;
     }
 
-    public ProjectParameters getProjectParameters(SBuild build) {
+    public ProjectParameters getProjectParameters(SBuild build, String serverUUID) {
         ProjectEx project = getProject(build);
         String apiKey = getApiKey(project);
         String ddSite = project.getParameterValue(DATADOG_SITE_PARAM);
@@ -46,7 +46,7 @@ public class ProjectHandler {
                             DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
         }
 
-        return new ProjectParameters(apiKey, ddSite);
+        return new ProjectParameters(apiKey, ddSite, serverUUID);
     }
 
     public boolean isPluginEnabled(SBuild build) {
@@ -83,10 +83,12 @@ public class ProjectHandler {
     public static class ProjectParameters {
         private final String apiKey;
         private final String ddSite;
+        private final String serverUUID;
 
-        public ProjectParameters(String apiKey, String ddSite) {
+        public ProjectParameters(String apiKey, String ddSite, String serverUUID) {
             this.apiKey = apiKey;
             this.ddSite = ddSite;
+            this.serverUUID = serverUUID;
         }
 
         public String apiKey() {
@@ -95,6 +97,25 @@ public class ProjectHandler {
 
         public String ddSite() {
             return ddSite;
+        }
+
+        public String serverUUID() {
+            return serverUUID;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ProjectParameters that = (ProjectParameters) o;
+            return java.util.Objects.equals(apiKey, that.apiKey) &&
+                   java.util.Objects.equals(ddSite, that.ddSite) &&
+                   java.util.Objects.equals(serverUUID, that.serverUUID);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(apiKey, ddSite, serverUUID);
         }
     }
 }

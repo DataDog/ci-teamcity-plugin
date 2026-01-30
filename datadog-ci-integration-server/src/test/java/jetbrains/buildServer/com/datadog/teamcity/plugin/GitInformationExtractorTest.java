@@ -9,6 +9,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.serverSide.SBuild;
+import jetbrains.buildServer.vcs.VcsRootInstanceEx;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,6 +23,7 @@ import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.DEFAULT_EMAIL_DOMAIN;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.GIT_VCS;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.URL_PROPERTY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.UsernameStyle.EMAIL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.UsernameStyle.FULL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.GitInformationExtractor.UsernameStyle.NAME;
@@ -211,6 +213,36 @@ public class GitInformationExtractorTest {
             .build();
 
         gitInfoExtractor.extractGitInfo(build);
+    }
+
+    @Test
+    public void shouldConvertGitSshUrlToHttps() {
+        // Setup: Git build with SSH URL
+        String sshUrl = "git@github.com:foo/bar.git";
+        String committerUsername = "git-user <git@example.com>";
+        
+        // Create a custom revision with SSH URL
+        SBuild build = new MockBuild.Builder(1, PIPELINE)
+            .addRevision(GIT_VCS, FULL.name(), committerUsername, EMPTY_AUTHOR_USERNAME)
+            .build();
+        
+        // Override the URL property to use SSH format
+        VcsRootInstanceEx vcsRoot = (VcsRootInstanceEx) build.getRevisions().get(0).getRoot();
+        when(vcsRoot.getProperty(URL_PROPERTY)).thenReturn(sshUrl);
+
+        // When
+        Optional<GitInfo> gitInfoOptional = gitInfoExtractor.extractGitInfo(build);
+
+        // Then
+        assertThat(gitInfoOptional).isNotEmpty();
+        GitInfo expectedGitInfo = defaultGitInfo()
+            .withRepositoryURL("https://github.com/foo/bar.git")
+            .withCommitterName("git-user")
+            .withCommitterEmail("git@example.com")
+            .withAuthorName("git-user")
+            .withAuthorEmail("git@example.com");
+        
+        assertThat(gitInfoOptional.get()).isEqualTo(expectedGitInfo);
     }
 
     private static GitInfo defaultGitInfo() {

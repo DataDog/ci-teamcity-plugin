@@ -79,10 +79,10 @@ public class BuildChainProcessor {
     }
 
     public void process(SBuild pipelineBuild) {
-        ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild);
+        ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild, serverSettings.getServerUUID());
         List<Webhook> webhooks = createWebhooks(pipelineBuild);
 
-        datadogClient.sendWebhooksAsync(webhooks, params.apiKey(), params.ddSite());
+        datadogClient.sendWebhooksAsync(webhooks, params);
     }
 
     /**
@@ -240,7 +240,7 @@ public class BuildChainProcessor {
     }
 
     private String buildID(SBuild build) {
-        // Server ID is included to avoid build ID conflicts on different TC instances within the same org
-        return format("%s-%s", serverSettings.getServerUUID(), build.getBuildId());
+        // Now that we send a "service" field, we can use the build ID directly without the server UUID
+        return String.valueOf(build.getBuildId());
     }
 }

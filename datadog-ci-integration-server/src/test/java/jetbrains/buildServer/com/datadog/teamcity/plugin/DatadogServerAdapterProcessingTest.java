@@ -48,6 +48,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NON_DE
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_SERVER_UUID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultErrorInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
@@ -90,8 +91,8 @@ public class DatadogServerAdapterProcessingTest {
         when(gitInfoExtractorMock.extractGitInfo(any())).thenReturn(Optional.empty());
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
-        when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+        when(projectHandlerMock.getProjectParameters(any(), any()))
+            .thenReturn(defaultProjectParams());
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
@@ -159,14 +160,14 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-1",
+            "1",
             "1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
@@ -186,14 +187,14 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-1",
+            "1",
             "1",
             IS_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
@@ -217,7 +218,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -225,7 +226,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-2",
+                "2",
                 "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -234,9 +235,9 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(jobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-2",
+                "2",
                 DEFAULT_NAME,
-                "serverID-1",
+                "1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -262,19 +263,19 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         JobWebhook secondJobWebhook = new JobWebhook(
             DEFAULT_NAME,
             defaultUrl(secondJobBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-3",
+            "3",
             DEFAULT_NAME,
-            "serverID-2",
+            "2",
             JobStatus.SUCCESS,
             DEFAULT_QUEUE_TIME);
-        secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
+        secondJobWebhook.setDependenciesIds(singletonList("1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -282,7 +283,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -291,9 +292,9 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 DEFAULT_NAME,
-                "serverID-1",
+                "1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME),
             secondJobWebhook);
@@ -326,7 +327,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         // First job should be removed as it started before the pipeline (accounting for 3s offset)
         JobWebhook secondJobWebhook = new JobWebhook(
@@ -334,12 +335,12 @@ public class DatadogServerAdapterProcessingTest {
             defaultUrl(secondJobBuild),
             toRFC3339(pipelineStart),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-3",
+            "3",
             DEFAULT_NAME,
-            "serverID-2",
+            "2",
             JobStatus.SUCCESS,
             3000);
-        secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
+        secondJobWebhook.setDependenciesIds(singletonList("1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -347,7 +348,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 "3",
                 IS_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -376,7 +377,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         // Second job should be removed as the build is composite
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -385,7 +386,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -394,9 +395,9 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 DEFAULT_NAME,
-                "serverID-1",
+                "1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -423,7 +424,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         // Second job should be removed as the build is personal
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -432,7 +433,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 "3",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -441,9 +442,9 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(firstJobBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-3",
+                "3",
                 DEFAULT_NAME,
-                "serverID-1",
+                "1",
                 JobStatus.SUCCESS,
                 DEFAULT_QUEUE_TIME));
 
@@ -471,7 +472,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
             new PipelineWebhook(
@@ -479,7 +480,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(pipelineStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-2",
+                "2",
                 "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -488,9 +489,9 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(jobBuild),
                 toRFC3339(jobStart),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-2",
+                "2",
                 DEFAULT_NAME,
-                "serverID-1",
+                "1",
                 JobStatus.SUCCESS,
                 2000));
 
@@ -516,16 +517,16 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
          JobWebhook jobWebhook = new JobWebhook(
              DEFAULT_NAME,
              defaultUrl(jobBuild),
              toRFC3339(DEFAULT_START_DATE),
              toRFC3339(DEFAULT_END_DATE),
-             "serverID-2",
+             "2",
              DEFAULT_NAME,
-             "serverID-1",
+             "1",
              JobStatus.ERROR,
              DEFAULT_QUEUE_TIME);
 
@@ -538,7 +539,7 @@ public class DatadogServerAdapterProcessingTest {
                 defaultUrl(pipelineBuild),
                 toRFC3339(DEFAULT_START_DATE),
                 toRFC3339(DEFAULT_END_DATE),
-                "serverID-2",
+                "2",
                 "2",
                 NO_PARTIAL_RETRY,
                 PipelineStatus.SUCCESS),
@@ -565,14 +566,14 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         PipelineWebhook expectedPipelineWebhook = new PipelineWebhook(
             DEFAULT_NAME,
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-2",
+            "2",
             "2",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
@@ -583,9 +584,9 @@ public class DatadogServerAdapterProcessingTest {
             defaultUrl(jobBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-2",
+            "2",
             DEFAULT_NAME,
-            "serverID-1",
+            "1",
             JobStatus.SUCCESS,
             DEFAULT_QUEUE_TIME);
         expectedJobWebhook.setGitInfo(defaultGitInfo());
@@ -606,14 +607,14 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         PipelineWebhook expectedWebhook = new PipelineWebhook(
             DEFAULT_NAME,
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-1",
+            "1",
             "1",
             NO_PARTIAL_RETRY,
             PipelineStatus.SUCCESS);
@@ -639,7 +640,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         // Job webhook should not be sent as it has an invalid end date
         PipelineWebhook expectedWebhook = new PipelineWebhook(
@@ -647,7 +648,7 @@ public class DatadogServerAdapterProcessingTest {
             defaultUrl(pipelineBuild),
             toRFC3339(DEFAULT_START_DATE),
             toRFC3339(DEFAULT_END_DATE),
-            "serverID-2",
+            "2",
             "2",
             NO_PARTIAL_RETRY,
             PipelineStatus.CANCELED);
@@ -677,7 +678,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
                 new PipelineWebhook(
@@ -685,7 +686,7 @@ public class DatadogServerAdapterProcessingTest {
                         emptyUrl,
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
+                        "2",
                         "2",
                         NO_PARTIAL_RETRY,
                         PipelineStatus.SUCCESS),
@@ -694,9 +695,9 @@ public class DatadogServerAdapterProcessingTest {
                         emptyUrl,
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
+                        "2",
                         DEFAULT_NAME,
-                        "serverID-1",
+                        "1",
                         JobStatus.SUCCESS,
                         DEFAULT_QUEUE_TIME));
 
@@ -723,7 +724,7 @@ public class DatadogServerAdapterProcessingTest {
 
         // Then
         verify(datadogClientMock, times(1))
-                .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(defaultProjectParams()));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
                 new PipelineWebhook(
@@ -731,7 +732,7 @@ public class DatadogServerAdapterProcessingTest {
                         nonDefaultUrl(pipelineBuild),
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
+                        "2",
                         "2",
                         NO_PARTIAL_RETRY,
                         PipelineStatus.SUCCESS),
@@ -740,13 +741,18 @@ public class DatadogServerAdapterProcessingTest {
                         nonDefaultUrl(jobBuild),
                         toRFC3339(DEFAULT_START_DATE),
                         toRFC3339(DEFAULT_END_DATE),
-                        "serverID-2",
+                        "2",
                         DEFAULT_NAME,
-                        "serverID-1",
+                        "1",
                         JobStatus.SUCCESS,
                         DEFAULT_QUEUE_TIME));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
     }
+
+    private static ProjectParameters defaultProjectParams() {
+        return new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, TEST_SERVER_UUID);
+    }
 }
+

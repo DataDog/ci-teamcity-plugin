@@ -9,6 +9,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.RetryInformation;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
@@ -41,7 +42,6 @@ import java.util.concurrent.Executors;
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_API_KEY_HEADER;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient.DD_CI_PROVIDER_HEADER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_BUILD_URL;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_ID;
@@ -53,6 +53,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAUL
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.NO_PARTIAL_RETRY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_API_KEY;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_DD_SITE;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.TEST_SERVER_UUID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultErrorInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultGitInfo;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.defaultHostInfo;
@@ -74,7 +75,7 @@ public class DatadogClientTest {
 
     private static final RetryInformation RETRY_INFO = new RetryInformation(2, 0);
     private static final int TEST_TIMEOUT_MS = 30_000;
-    private static final String TEST_WEBHOOK_INTAKE = "https://webhook-intake.datad0g.com/api/v2/webhook";
+    private static final String TEST_WEBHOOK_INTAKE = "https://api.datad0g.com/api/v2/ci/pipeline";
 
     @Captor
     private ArgumentCaptor<HttpEntity<String>> requestCaptor;
@@ -100,7 +101,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(singletonList(pipelineWebhook), defaultProjectParams());
 
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(1))
             .exchange(eq(TEST_WEBHOOK_INTAKE), eq(POST), requestCaptor.capture(), eq(String.class));
@@ -118,7 +119,7 @@ public class DatadogClientTest {
 
         // When
         List<Webhook> webhooks = Arrays.asList(completeJob(), completePipeline());
-        datadogClient.sendWebhooksAsync(webhooks, TEST_API_KEY, TEST_DD_SITE);
+        datadogClient.sendWebhooksAsync(webhooks, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, timeout(TEST_TIMEOUT_MS).times(2))
@@ -142,7 +143,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -151,10 +152,9 @@ public class DatadogClientTest {
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-            .hasSize(3)
+            .hasSize(2)
             .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY);
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -170,7 +170,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(2))
@@ -179,10 +179,9 @@ public class DatadogClientTest {
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-            .hasSize(3)
+            .hasSize(2)
             .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY);
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -198,7 +197,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(2))
@@ -207,10 +206,9 @@ public class DatadogClientTest {
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-            .hasSize(3)
+            .hasSize(2)
             .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY);
 
         String expectedJson = loadJson("default-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -226,7 +224,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, new ProjectParameters(mockApiKey, "datad0g.com", "test-server-uuid"));
 
         // Then
         verify(restTemplateMock, times(1))
@@ -243,7 +241,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = defaultPipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, mockApiKey, "datad0g.com");
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, new ProjectParameters(mockApiKey, "datad0g.com", "test-server-uuid"));
 
         // Then
         verify(restTemplateMock, times(3)) // 1 normal and 2 retries
@@ -259,7 +257,7 @@ public class DatadogClientTest {
 
         // When
         PipelineWebhook pipelineWebhook = completePipeline();
-        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(pipelineWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -268,10 +266,9 @@ public class DatadogClientTest {
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-            .hasSize(3)
+            .hasSize(2)
             .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY);
 
         String expectedJson = loadJson("complete-pipeline.json");
         String body = requestCaptor.getValue().getBody();
@@ -286,7 +283,7 @@ public class DatadogClientTest {
 
         // When
         JobWebhook jobWebhook = completeJob();
-        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, TEST_API_KEY, TEST_DD_SITE);
+        boolean successful = datadogClient.sendWebhookWithRetries(jobWebhook, defaultProjectParams());
 
         // Then
         verify(restTemplateMock, times(1))
@@ -295,10 +292,9 @@ public class DatadogClientTest {
 
         HttpEntity<String> requestDone = requestCaptor.getValue();
         assertThat(requestDone.getHeaders().toSingleValueMap())
-            .hasSize(3)
+            .hasSize(2)
             .containsEntry("Content-Type", MediaType.APPLICATION_JSON.toString())
-            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY)
-            .containsEntry(DD_CI_PROVIDER_HEADER, "teamcity");
+            .containsEntry(DD_API_KEY_HEADER, TEST_API_KEY);
 
         String expectedJson = loadJson("complete-job.json");
         String body = requestCaptor.getValue().getBody();
@@ -355,4 +351,9 @@ public class DatadogClientTest {
     private static String removeWhitespaces(String input) {
         return input.replaceAll("\\s", "");
     }
+
+    private static ProjectParameters defaultProjectParams() {
+        return new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, TEST_SERVER_UUID);
+    }
 }
+

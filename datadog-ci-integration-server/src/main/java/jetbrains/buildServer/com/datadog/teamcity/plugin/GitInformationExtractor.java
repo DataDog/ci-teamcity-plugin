@@ -57,7 +57,7 @@ public class GitInformationExtractor {
             .orElse(committerInfo);
 
         return Optional.of(new GitInfo()
-            .withRepositoryURL(vcsRootInstance.getProperty(URL_PROPERTY))
+            .withRepositoryURL(convertGitUrlToHttps(vcsRootInstance.getProperty(URL_PROPERTY)))
             .withDefaultBranch(vcsRootInstance.getProperty(BRANCH_PROPERTY))
             .withMessage(gitModification.getDescription().trim())
             .withSha(gitModification.getVersion())
@@ -159,6 +159,30 @@ public class GitInformationExtractor {
             this.username = username;
             this.email = email;
         }
+    }
+
+    /**
+     * Converts Git SSH URL to HTTPS format for API compatibility.
+     * Examples:
+     *   git@github.com:owner/repo.git -> https://github.com/owner/repo.git
+     *   user@gitlab.com:group/project.git -> https://gitlab.com/group/project.git
+     */
+    protected String convertGitUrlToHttps(String gitUrl) {
+        if (gitUrl == null) {
+            return null;
+        }
+        // Convert SSH format: user@host:path -> https://host/path
+        int atIndex = gitUrl.indexOf('@');
+        if (atIndex > 0) {
+            int colonIndex = gitUrl.indexOf(':', atIndex);
+            if (colonIndex > atIndex) {
+                String host = gitUrl.substring(atIndex + 1, colonIndex);
+                String path = gitUrl.substring(colonIndex + 1);
+                return "https://" + host + "/" + path;
+            }
+        }
+        // Already HTTPS or HTTP, return as-is
+        return gitUrl;
     }
 
     protected enum UsernameStyle {

@@ -94,7 +94,7 @@ public class DatadogServerAdapterProcessingTest {
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
         when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, false));
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);

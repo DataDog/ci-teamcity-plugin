@@ -14,9 +14,13 @@ import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.util.EventDispatcher;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
@@ -29,14 +33,20 @@ public class DatadogServerAdapter extends BuildServerAdapter {
     private final BuildsManager buildsManager;
     private final BuildChainProcessor buildChainProcessor;
     private final ProjectHandler projectHandler;
+    private final ExecutorService logReportingExecutor;
+    private final ExecutorService clientExecutor;
 
     public DatadogServerAdapter(EventDispatcher<BuildServerListener> eventListener,
                                 BuildsManager buildsManager,
                                 BuildChainProcessor buildChainProcessor,
-                                ProjectHandler projectHandler) {
+                                ProjectHandler projectHandler,
+                                @Qualifier("logReportingExecutor") ExecutorService logReportingExecutor,
+                                @Qualifier("clientExecutor") ExecutorService clientExecutor) {
         this.buildsManager = buildsManager;
         this.buildChainProcessor = buildChainProcessor;
         this.projectHandler = projectHandler;
+        this.logReportingExecutor = logReportingExecutor;
+        this.clientExecutor = clientExecutor;
 
         eventListener.addListener(this);
     }
@@ -49,6 +59,27 @@ public class DatadogServerAdapter extends BuildServerAdapter {
     @Override
     public void buildInterrupted(SRunningBuild build) {
         onBuildFinished(build);
+    }
+
+    @Override
+    public void serverShutdown() {
+        try {
+            drain(logReportingExecutor, "log reporting", 3, TimeUnit.MINUTES);
+            drain(clientExecutor, "webhook", 30, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            logReportingExecutor.shutdownNow();
+            clientExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+            LOG.warn("Interrupted while draining Datadog deliveries during TeamCity shutdown", ex);
+        }
+    }
+
+    private void drain(ExecutorService executor, String name, long timeout, TimeUnit unit) throws InterruptedException {
+        executor.shutdown();
+        if (!executor.awaitTermination(timeout, unit)) {
+            List<Runnable> queued = executor.shutdownNow();
+            LOG.warn(format("Timed out draining Datadog %s deliveries; canceled %d queued tasks", name, queued.size()));
+        }
     }
 
     private void onBuildFinished(SRunningBuild build) {

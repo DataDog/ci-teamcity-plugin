@@ -68,15 +68,15 @@ public class JobLogReporterBatchTest {
         }
         when(build.getBuildLog()).thenReturn(log);
         when(log.getMessagesIterator()).thenReturn(messages.iterator());
-        when(client.sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com")))
-                .thenReturn(true);
+        when(client.sendLogBatchWithRetriesResult(any(byte[].class), eq("api-key"), eq("datad0g.com")))
+                .thenReturn(DeliveryResult.SUCCESS);
 
-        new JobLogReporter(client, mapper, Runnable::run)
+        new JobLogReporter(client, mapper)
                 .sendLogs(build, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
         org.mockito.Mockito.verify(client, org.mockito.Mockito.times(expectedBatchCounts.length))
-                .sendLogBatchWithRetries(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
         long lineNumber = 1;
         for (int i = 0; i < expectedBatchCounts.length; i++) {
             byte[] payload = payloads.getAllValues().get(i);

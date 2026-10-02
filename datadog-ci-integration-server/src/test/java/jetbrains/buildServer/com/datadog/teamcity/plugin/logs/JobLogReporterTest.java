@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogClient;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.DatadogConfiguration;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.buildLog.BlockLogMessage;
@@ -21,7 +20,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
@@ -32,16 +30,16 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Collections.singletonList;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus.SUCCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,11 +57,11 @@ public class JobLogReporterTest {
     @Before
     public void setUp() {
         objectMapper = new DatadogConfiguration().objectMapper();
-        reporter = new JobLogReporter(datadogClient, objectMapper, Runnable::run);
+        reporter = new JobLogReporter(datadogClient, objectMapper);
         timestamp = new Date();
         when(jobBuild.getBuildLog()).thenReturn(buildLog);
-        when(datadogClient.sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com")))
-                .thenReturn(true);
+        when(datadogClient.sendLogBatchWithRetriesResult(any(byte[].class), eq("api-key"), eq("datad0g.com")))
+                .thenReturn(DeliveryResult.SUCCESS);
     }
 
     @Test
@@ -80,7 +78,7 @@ public class JobLogReporterTest {
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(datadogClient).sendLogBatchWithRetries(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
         JsonNode lines = objectMapper.readTree(payload.getValue());
         assertThat(lines.size()).isEqualTo(2);
         assertThat(lines.get(0).get("message").asText()).isEqualTo("first");
@@ -106,7 +104,7 @@ public class JobLogReporterTest {
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(datadogClient).sendLogBatchWithRetries(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
         JsonNode lines = objectMapper.readTree(payload.getValue());
         assertThat(lines.size()).isEqualTo(2);
         assertThat(lines.get(0).get("message").asText()).isEqualTo("first");
@@ -128,7 +126,7 @@ public class JobLogReporterTest {
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(datadogClient).sendLogBatchWithRetries(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
         JsonNode lines = objectMapper.readTree(payload.getValue());
         assertThat(lines.size()).isEqualTo(5);
         assertThat(lines.get(0).get("status").asText()).isEqualTo("info");
@@ -154,7 +152,7 @@ public class JobLogReporterTest {
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(datadogClient).sendLogBatchWithRetries(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
         JsonNode lines = objectMapper.readTree(payload.getValue());
         assertThat(lines.get(0).get("section_name").asText()).isEqualTo("compile");
         assertThat(lines.get(1).get("section_name").asText()).isEqualTo("tests");
@@ -166,7 +164,7 @@ public class JobLogReporterTest {
 
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
-        verify(datadogClient, never()).sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient, never()).sendLogBatchWithRetriesResult(any(byte[].class), eq("api-key"), eq("datad0g.com"));
     }
 
     @Test
@@ -176,7 +174,7 @@ public class JobLogReporterTest {
 
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
-        verify(datadogClient, never()).sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient, never()).sendLogBatchWithRetriesResult(any(byte[].class), eq("api-key"), eq("datad0g.com"));
     }
 
     @Test
@@ -189,11 +187,27 @@ public class JobLogReporterTest {
         reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(datadogClient).sendLogBatchWithRetries(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
         JsonNode lines = objectMapper.readTree(payload.getValue());
         assertThat(lines.size()).isEqualTo(2);
         assertThat(lines.get(0).has("timestamp")).isFalse();
         assertThat(lines.get(1).has("timestamp")).isFalse();
+    }
+
+    @Test
+    public void sendsALineWithoutATeamCityTimestamp() throws IOException {
+        LogMessage message = mock(LogMessage.class);
+        when(message.getText()).thenReturn("output");
+        when(message.getStatus()).thenReturn(Status.NORMAL);
+        when(buildLog.getMessagesIterator()).thenReturn(singletonList(message).iterator());
+
+        reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
+
+        ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
+        verify(datadogClient).sendLogBatchWithRetriesResult(payload.capture(), eq("api-key"), eq("datad0g.com"));
+        JsonNode line = objectMapper.readTree(payload.getValue()).get(0);
+        assertThat(line.get("message").asText()).isEqualTo("output");
+        assertThat(line.has("timestamp")).isFalse();
     }
 
     @Test
@@ -206,7 +220,7 @@ public class JobLogReporterTest {
 
         ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
         verify(datadogClient, org.mockito.Mockito.atLeast(2))
-                .sendLogBatchWithRetries(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
         StringBuilder reconstructed = new StringBuilder();
         int nextLineNumber = 1;
         for (byte[] payload : payloads.getAllValues()) {
@@ -230,7 +244,7 @@ public class JobLogReporterTest {
 
         ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
         verify(datadogClient, org.mockito.Mockito.atLeast(2))
-                .sendLogBatchWithRetries(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
         StringBuilder reconstructed = new StringBuilder();
         int nextLineNumber = 1;
         for (byte[] payload : payloads.getAllValues()) {
@@ -248,56 +262,91 @@ public class JobLogReporterTest {
     }
 
     @Test
-    public void sendsLogsBeforeTheJobWebhook() {
-        when(buildLog.getMessagesIterator()).thenReturn(singletonList(message("output", Status.NORMAL, false)).iterator());
-        JobWebhook webhook = webhook();
+    public void resumesAfterTheLastAcceptedBatchWithoutSkippingLines() throws IOException {
+        List<LogMessage> messages = new ArrayList<>();
+        for (int i = 1; i <= 1001; i++) {
+            messages.add(message("line " + i, Status.NORMAL, false));
+        }
+        when(buildLog.getMessagesIterator()).thenAnswer(ignored -> messages.iterator());
+        when(datadogClient.sendLogBatchWithRetriesResult(any(byte[].class), eq("api-key"), eq("datad0g.com")))
+                .thenReturn(DeliveryResult.SUCCESS, DeliveryResult.RETRYABLE_FAILURE, DeliveryResult.SUCCESS);
+        AtomicLong acknowledged = new AtomicLong();
 
-        reporter.sendJobWithLogsAsync(jobBuild, webhook, "pipeline-id", "api-key", "datad0g.com");
+        try {
+            reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com", 0,
+                    acknowledged::set);
+            throw new AssertionError("Expected the second batch to fail");
+        } catch (LogDeliveryException ex) {
+            assertThat(ex.getResult()).isEqualTo(DeliveryResult.RETRYABLE_FAILURE);
+        }
+        assertThat(acknowledged.get()).isEqualTo(1000);
 
-        InOrder order = inOrder(datadogClient);
-        order.verify(datadogClient).sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com"));
-        order.verify(datadogClient).sendWebhookWithRetries(webhook, "api-key", "datad0g.com");
+        reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com",
+                acknowledged.get(), acknowledged::set);
+
+        ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
+        verify(datadogClient, org.mockito.Mockito.times(3))
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+        assertThat(objectMapper.readTree(payloads.getAllValues().get(0)).size()).isEqualTo(1000);
+        assertThat(objectMapper.readTree(payloads.getAllValues().get(1)).size()).isEqualTo(1);
+        JsonNode resumed = objectMapper.readTree(payloads.getAllValues().get(2));
+        assertThat(resumed.size()).isEqualTo(1);
+        assertThat(resumed.get(0).get("line_number").asLong()).isEqualTo(1001);
+        assertThat(resumed.get(0).get("message").asText()).isEqualTo("line 1001");
+        assertThat(acknowledged.get()).isEqualTo(1001);
     }
 
     @Test
-    public void sendsTheJobWebhookWhenLogDeliveryFails() {
-        when(buildLog.getMessagesIterator()).thenReturn(singletonList(message("output", Status.NORMAL, false)).iterator());
-        when(datadogClient.sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com")))
-                .thenReturn(false);
+    public void fragmentsKeepTheSameLineNumbersWhenTimestampIsOmitted() throws IOException {
+        String text = repeat('x', LogBatch.MAX_FRAGMENT_CODEPOINTS * 2 + 7);
+        LogMessage current = new LogMessage(text, Status.NORMAL, timestamp, null, false, 0);
+        LogMessage old = new LogMessage(text, Status.NORMAL, new Date(0), null, false, 0);
+        when(buildLog.getMessagesIterator()).thenReturn(
+                singletonList(current).iterator(), singletonList(old).iterator());
 
-        reporter.sendJobWithLogsAsync(jobBuild, webhook(), "pipeline-id", "api-key", "datad0g.com");
+        reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
+        reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com");
 
-        verify(datadogClient).sendWebhookWithRetries(any(JobWebhook.class), eq("api-key"), eq("datad0g.com"));
+        ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
+        verify(datadogClient, org.mockito.Mockito.times(2))
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+        JsonNode withTimestamp = objectMapper.readTree(payloads.getAllValues().get(0));
+        JsonNode withoutTimestamp = objectMapper.readTree(payloads.getAllValues().get(1));
+        assertThat(withTimestamp.size()).isEqualTo(3);
+        assertThat(withoutTimestamp.size()).isEqualTo(3);
+        for (int i = 0; i < 3; i++) {
+            assertThat(withTimestamp.get(i).get("line_number").asInt()).isEqualTo(i + 1);
+            assertThat(withoutTimestamp.get(i).get("line_number").asInt()).isEqualTo(i + 1);
+            assertThat(withoutTimestamp.get(i).get("message").asText())
+                    .isEqualTo(withTimestamp.get(i).get("message").asText());
+        }
     }
 
     @Test
-    public void sendsTheJobWebhookWhenLogReadingFails() {
-        when(jobBuild.getBuildLog()).thenThrow(new IllegalStateException("unavailable"));
+    public void resendsAnAcceptedBatchIfItsCheckpointWasNotSaved() throws IOException {
+        when(buildLog.getMessagesIterator()).thenAnswer(ignored ->
+                singletonList(message("output", Status.NORMAL, false)).iterator());
 
-        reporter.sendJobWithLogsAsync(jobBuild, webhook(), "pipeline-id", "api-key", "datad0g.com");
+        try {
+            reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com", 0,
+                    ignored -> { throw new IllegalStateException("checkpoint unavailable"); });
+            throw new AssertionError("Expected checkpoint persistence to fail");
+        } catch (IllegalStateException ex) {
+            assertThat(ex.getMessage()).isEqualTo("checkpoint unavailable");
+        }
+        reporter.sendLogs(jobBuild, "pipeline-id", "job-id", "api-key", "datad0g.com", 0,
+                ignored -> {});
 
-        verify(datadogClient).sendWebhookWithRetries(any(JobWebhook.class), eq("api-key"), eq("datad0g.com"));
-    }
-
-    @Test
-    public void skipsLogsWhenTheExecutorIsFull() {
-        Executor rejectingExecutor = task -> { throw new RejectedExecutionException(); };
-        reporter = new JobLogReporter(datadogClient, objectMapper, rejectingExecutor);
-        JobWebhook webhook = webhook();
-
-        reporter.sendJobWithLogsAsync(jobBuild, webhook, "pipeline-id", "api-key", "datad0g.com");
-
-        verify(datadogClient).sendWebhooksAsync(singletonList(webhook), "api-key", "datad0g.com");
-        verify(datadogClient, never()).sendLogBatchWithRetries(any(byte[].class), eq("api-key"), eq("datad0g.com"));
+        ArgumentCaptor<byte[]> payloads = ArgumentCaptor.forClass(byte[].class);
+        verify(datadogClient, org.mockito.Mockito.times(2))
+                .sendLogBatchWithRetriesResult(payloads.capture(), eq("api-key"), eq("datad0g.com"));
+        assertThat(objectMapper.readTree(payloads.getAllValues().get(0)).get(0).get("line_number").asInt()).isEqualTo(1);
+        assertThat(objectMapper.readTree(payloads.getAllValues().get(1)).get(0).get("line_number").asInt()).isEqualTo(1);
     }
 
     private LogMessage message(String text, Status status, boolean internal) {
         return new LogMessage(text, status, timestamp, null, false, 7,
                 internal ? singletonList("tc:internal") : Collections.emptyList());
-    }
-
-    private JobWebhook webhook() {
-        return new JobWebhook("job", "url", "start", "end", "pipeline-id", "pipeline", "job-id", SUCCESS, 0);
     }
 
     private String repeat(char character, int count) {

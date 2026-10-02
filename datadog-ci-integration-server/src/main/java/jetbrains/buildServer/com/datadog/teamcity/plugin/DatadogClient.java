@@ -10,6 +10,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.DeliveryResult;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -55,9 +56,13 @@ public class DatadogClient {
     }
 
     public boolean sendLogBatchWithRetries(byte[] payload, String apiKey, String ddSite) {
+        return sendLogBatchWithRetriesResult(payload, apiKey, ddSite) == DeliveryResult.SUCCESS;
+    }
+
+    public DeliveryResult sendLogBatchWithRetriesResult(byte[] payload, String apiKey, String ddSite) {
         if (!"datadoghq.com".equals(ddSite) && !"datad0g.com".equals(ddSite)) {
             LOG.warn(format("CI log intake is not available for site '%s'", ddSite));
-            return false;
+            return DeliveryResult.BLOCKED;
         }
 
         String url = format(LOG_INTAKE_BASE_URL, ddSite);
@@ -67,16 +72,16 @@ public class DatadogClient {
             try {
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
                 if (response.getStatusCode().is2xxSuccessful()) {
-                    return true;
+                    return DeliveryResult.SUCCESS;
                 }
                 if (!shouldRetry(response.getStatusCodeValue())) {
                     LOG.warn(format("CI log intake rejected a batch with status %d", response.getStatusCodeValue()));
-                    return false;
+                    return DeliveryResult.BLOCKED;
                 }
             } catch (HttpStatusCodeException ex) {
                 if (!shouldRetry(ex.getRawStatusCode())) {
                     LOG.warn(format("CI log intake rejected a batch with status %d", ex.getRawStatusCode()));
-                    return false;
+                    return DeliveryResult.BLOCKED;
                 }
             } catch (RestClientException ex) {
                 LOG.warn(format("Could not send a CI log batch, attempt %d/%d", attempt + 1, retryInfo.maxRetries + 1), ex);
@@ -87,7 +92,36 @@ public class DatadogClient {
             }
         }
 
-        return false;
+        return DeliveryResult.RETRYABLE_FAILURE;
+    }
+
+    public DeliveryResult sendWebhookPayloadWithRetries(String payload, String webhookId, String apiKey, String ddSite) {
+        String url = format(WEBHOOK_INTAKE_BASE_URL, ddSite);
+        HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));
+        for (int attempt = 0; attempt <= retryInfo.maxRetries; attempt++) {
+            try {
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    return DeliveryResult.SUCCESS;
+                }
+                if (!shouldRetry(response.getStatusCodeValue())) {
+                    LOG.warn(format("Webhook '%s' was rejected with status %d", webhookId, response.getStatusCodeValue()));
+                    return DeliveryResult.BLOCKED;
+                }
+            } catch (HttpStatusCodeException ex) {
+                if (!shouldRetry(ex.getRawStatusCode())) {
+                    LOG.warn(format("Webhook '%s' was rejected with status %d", webhookId, ex.getRawStatusCode()));
+                    return DeliveryResult.BLOCKED;
+                }
+            } catch (RestClientException ex) {
+                LOG.warn(format("Could not send webhook '%s', attempt %d/%d", webhookId,
+                        attempt + 1, retryInfo.maxRetries + 1), ex);
+            }
+            if (attempt < retryInfo.maxRetries) {
+                sleepSeconds(retryInfo.backoffSeconds);
+            }
+        }
+        return DeliveryResult.RETRYABLE_FAILURE;
     }
 
     private boolean shouldRetry(int statusCode) {

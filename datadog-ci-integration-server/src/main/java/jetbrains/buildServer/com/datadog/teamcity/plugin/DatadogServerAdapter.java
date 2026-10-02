@@ -39,6 +39,7 @@ public class DatadogServerAdapter extends BuildServerAdapter {
         this.projectHandler = projectHandler;
 
         eventListener.addListener(this);
+        buildChainProcessor.scheduleRecovery();
     }
 
     @Override
@@ -69,7 +70,11 @@ public class DatadogServerAdapter extends BuildServerAdapter {
             return;
         }
 
-        buildChainProcessor.process(pipelineBuild);
+        try {
+            buildChainProcessor.process(pipelineBuild);
+        } catch (RuntimeException ex) {
+            LOG.error("Could not record Datadog delivery for TeamCity build " + build.getBuildId(), ex);
+        }
     }
 
     private boolean isLastCompositeBuild(SBuild build) {

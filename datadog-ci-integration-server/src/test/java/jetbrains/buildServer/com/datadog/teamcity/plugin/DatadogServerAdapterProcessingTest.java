@@ -8,7 +8,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.JobLogReporter;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.LogDeliveryCoordinator;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
@@ -73,7 +73,7 @@ public class DatadogServerAdapterProcessingTest {
     @Mock
     private DatadogClient datadogClientMock;
     @Mock
-    private JobLogReporter jobLogReporterMock;
+    private LogDeliveryCoordinator logDeliveryCoordinatorMock;
     @Mock
     private SBuildServer buildServerMock;
     @Mock
@@ -97,7 +97,7 @@ public class DatadogServerAdapterProcessingTest {
             .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, logDeliveryCoordinatorMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
     }
 
@@ -673,7 +673,7 @@ public class DatadogServerAdapterProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, logDeliveryCoordinatorMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
         datadogServerAdapter.buildFinished(pipelineBuild);
         String emptyUrl = "";
@@ -718,7 +718,7 @@ public class DatadogServerAdapterProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, logDeliveryCoordinatorMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
         // Setup: non default server root URL with final slash
         when(buildServerMock.getRootUrl()).thenReturn(NON_DEFAULT_URL + "/");
@@ -765,10 +765,28 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(pipelineBuild);
 
-        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
-        assertThat(webhooksCaptor.getValue()).hasSize(1).first().isInstanceOf(PipelineWebhook.class);
-        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(jobBuild), any(JobWebhook.class),
-                eq("serverID-2"), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        verify(logDeliveryCoordinatorMock).enqueue(eq(pipelineBuild), eq(singletonList(jobBuild)),
+                webhooksCaptor.capture(), eq(TEST_DD_SITE));
+        assertThat(webhooksCaptor.getValue()).hasSize(2);
+        assertThat(webhooksCaptor.getValue().get(0)).isInstanceOf(PipelineWebhook.class);
+        assertThat(webhooksCaptor.getValue().get(1)).isInstanceOf(JobWebhook.class);
+    }
+
+    @Test
+    public void shouldQueueLogsForAJobWithoutAnAgent() {
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, true));
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        when(jobBuild.getAgent()).thenReturn(null);
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(logDeliveryCoordinatorMock).enqueue(eq(pipelineBuild), eq(singletonList(jobBuild)),
+                any(), eq(TEST_DD_SITE));
     }
 
     @Test
@@ -784,16 +802,19 @@ public class DatadogServerAdapterProcessingTest {
         SRunningBuild unstartedJob = new MockBuild.Builder(3, JOB)
             .withEndDate(null)
             .build();
+        SRunningBuild canceledBeforeStart = new MockBuild.Builder(5, JOB)
+            .withStartDate(null)
+            .build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(4, PIPELINE)
             .withStartDate(new Date(10000))
-            .withAllDependencies(Arrays.asList(reusedJob, newJob, unstartedJob))
+            .withAllDependencies(Arrays.asList(reusedJob, newJob, unstartedJob, canceledBeforeStart))
             .build();
         when(buildsManagerMock.findBuildInstanceById(4)).thenReturn(pipelineBuild);
 
         datadogServerAdapter.buildFinished(pipelineBuild);
 
-        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(newJob), any(JobWebhook.class),
-                eq("serverID-4"), eq(TEST_API_KEY), eq(TEST_DD_SITE));
-        verify(jobLogReporterMock, times(1)).sendJobWithLogsAsync(any(), any(), any(), any(), any());
+        verify(logDeliveryCoordinatorMock).enqueue(eq(pipelineBuild), eq(singletonList(newJob)),
+                webhooksCaptor.capture(), eq(TEST_DD_SITE));
+        assertThat(webhooksCaptor.getValue()).hasSize(2);
     }
 }

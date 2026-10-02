@@ -9,7 +9,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
-import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.JobLogReporter;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.LogDeliveryCoordinator;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo;
@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -67,15 +69,15 @@ public class BuildChainProcessor {
 
     private final SBuildServer buildServer;
     private final DatadogClient datadogClient;
-    private final JobLogReporter jobLogReporter;
+    private final LogDeliveryCoordinator logDeliveryCoordinator;
     private final ProjectHandler projectHandler;
     private final GitInformationExtractor gitInformationExtractor;
     private final ServerSettings serverSettings;
 
-    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, JobLogReporter jobLogReporter, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
+    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, LogDeliveryCoordinator logDeliveryCoordinator, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
         this.buildServer = buildServer;
         this.datadogClient = datadogClient;
-        this.jobLogReporter = jobLogReporter;
+        this.logDeliveryCoordinator = logDeliveryCoordinator;
         this.projectHandler = projectHandler;
         this.gitInformationExtractor = gitInformationExtractor;
         this.serverSettings = serverSettings;
@@ -91,10 +93,43 @@ public class BuildChainProcessor {
             return;
         }
 
-        datadogClient.sendWebhooksAsync(singletonList(webhooks.get(0)), params.apiKey(), params.ddSite());
-        for (int i = 0; i < jobBuilds.size(); i++) {
-            jobLogReporter.sendJobWithLogsAsync(jobBuilds.get(i), (JobWebhook) webhooks.get(i + 1),
-                    webhooks.get(0).id(), params.apiKey(), params.ddSite());
+        logDeliveryCoordinator.enqueue(pipelineBuild, jobBuilds, webhooks, params.ddSite());
+    }
+
+    public void scheduleRecovery() {
+        logDeliveryCoordinator.scheduleRecovery(this::recoverRecent);
+    }
+
+    private void recoverRecent() {
+        long scanStartedAt = System.currentTimeMillis();
+        long lastRecoveredAt = logDeliveryCoordinator.recoveryStartMillis();
+        Date startCutoff = new Date(lastRecoveredAt - TimeUnit.DAYS.toMillis(30));
+        Date finishCutoff = new Date(lastRecoveredAt);
+        AtomicBoolean failed = new AtomicBoolean();
+        buildServer.getHistory().processEntries(build -> {
+            try {
+                Date startDate = build.getStartDate();
+                if (startDate != null && startDate.before(startCutoff)) {
+                    return false;
+                }
+                if (startDate == null || build.getFinishDate() == null ||
+                        build.getFinishDate().before(finishCutoff) ||
+                        !build.isCompositeBuild() || build.isPersonal() ||
+                        build.getBuildPromotion().getNumberOfDependedOnMe() != 0 ||
+                        logDeliveryCoordinator.isKnown(build.getBuildId()) ||
+                        !projectHandler.isPluginEnabled(build) ||
+                        !projectHandler.getProjectParameters(build).logsEnabled()) {
+                    return true;
+                }
+                process(build);
+            } catch (RuntimeException ex) {
+                failed.set(true);
+                LOG.error("Could not recover CI log delivery for TeamCity build " + build.getBuildId(), ex);
+            }
+            return true;
+        });
+        if (!failed.get()) {
+            logDeliveryCoordinator.markRecovered(scanStartedAt);
         }
     }
 
@@ -164,6 +199,7 @@ public class BuildChainProcessor {
     private boolean shouldBeIgnored(SBuild jobBuild, Date pipelineStart) {
         return jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
             jobBuild.isPersonal() ||
+            jobBuild.getStartDate() == null ||
             jobBuild.getFinishDate() == null || // This can happen in case the build is canceled before it starts
             // For partial retries, we ignore jobs started before the pipeline,
             // as they are reused builds which were already sent by previous webhooks
@@ -209,7 +245,8 @@ public class BuildChainProcessor {
     }
 
     private Optional<HostInfo> getHostInfo(SBuild build) {
-        if (build.getAgent().getHostName().isEmpty() && build.getAgent().getHostAddress().isEmpty()) {
+        if (build.getAgent() == null ||
+                (build.getAgent().getHostName().isEmpty() && build.getAgent().getHostAddress().isEmpty())) {
             return Optional.empty();
         }
 

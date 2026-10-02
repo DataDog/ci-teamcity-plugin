@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
@@ -84,6 +85,10 @@ public class DatadogServerAdapterProcessingTest {
     private GitInformationExtractor gitInfoExtractorMock;
     @Mock
     private ServerSettings serverSettings;
+    @Mock
+    private ExecutorService logReportingExecutorMock;
+    @Mock
+    private ExecutorService clientExecutorMock;
 
     private DatadogServerAdapter datadogServerAdapter;
 
@@ -98,7 +103,8 @@ public class DatadogServerAdapterProcessingTest {
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
     }
 
     @Test
@@ -674,7 +680,8 @@ public class DatadogServerAdapterProcessingTest {
 
         // When
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
         datadogServerAdapter.buildFinished(pipelineBuild);
         String emptyUrl = "";
 
@@ -719,7 +726,8 @@ public class DatadogServerAdapterProcessingTest {
 
         // When
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
         // Setup: non default server root URL with final slash
         when(buildServerMock.getRootUrl()).thenReturn(NON_DEFAULT_URL + "/");
         datadogServerAdapter.buildFinished(pipelineBuild);

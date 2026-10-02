@@ -36,11 +36,12 @@ public class LogExecutorCapacityTest {
     @Test(timeout = 30000)
     public void queuesEveryJobWhileAllWorkersAreBusy() throws InterruptedException {
         ExecutorService executor = new DatadogConfiguration().logReportingExecutor();
-        CountDownLatch workersStarted = new CountDownLatch(4);
+        int workerCount = ((ThreadPoolExecutor) executor).getCorePoolSize();
+        CountDownLatch workersStarted = new CountDownLatch(workerCount);
         CountDownLatch releaseWorkers = new CountDownLatch(1);
         CountDownLatch completedJobs = new CountDownLatch(pendingJobs);
         try {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < workerCount; i++) {
                 executor.execute(() -> {
                     workersStarted.countDown();
                     try {

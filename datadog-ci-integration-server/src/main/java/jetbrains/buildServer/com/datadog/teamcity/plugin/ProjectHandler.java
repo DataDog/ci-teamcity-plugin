@@ -28,6 +28,7 @@ public class ProjectHandler {
     protected static final String DATADOG_API_KEY_PARAM = "datadog.ci.api.key";
     protected static final String DATADOG_SITE_PARAM = "datadog.ci.site";
     protected static final String DATADOG_ENABLED_PARAM = "datadog.ci.enabled";
+    protected static final String DATADOG_LOGS_ENABLED_PARAM = "datadog.ci.logs.enabled";
 
     private final ProjectManager projectManager;
 
@@ -46,7 +47,8 @@ public class ProjectHandler {
                             DATADOG_SITE_PARAM, project.getName(), project.getParameters()));
         }
 
-        return new ProjectParameters(apiKey, ddSite);
+        boolean logsEnabled = Boolean.parseBoolean(project.getParameterValue(DATADOG_LOGS_ENABLED_PARAM));
+        return new ProjectParameters(apiKey, ddSite, logsEnabled);
     }
 
     public boolean isPluginEnabled(SBuild build) {
@@ -83,10 +85,16 @@ public class ProjectHandler {
     public static class ProjectParameters {
         private final String apiKey;
         private final String ddSite;
+        private final boolean logsEnabled;
 
         public ProjectParameters(String apiKey, String ddSite) {
+            this(apiKey, ddSite, false);
+        }
+
+        public ProjectParameters(String apiKey, String ddSite, boolean logsEnabled) {
             this.apiKey = apiKey;
             this.ddSite = ddSite;
+            this.logsEnabled = logsEnabled;
         }
 
         public String apiKey() {
@@ -95,6 +103,10 @@ public class ProjectHandler {
 
         public String ddSite() {
             return ddSite;
+        }
+
+        public boolean logsEnabled() {
+            return logsEnabled;
         }
     }
 }

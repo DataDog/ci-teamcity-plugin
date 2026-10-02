@@ -17,6 +17,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class DatadogConfiguration {
@@ -25,11 +28,19 @@ public class DatadogConfiguration {
     private static final int BACKOFF_SECONDS = 10;
     private static final int CONNECTION_TIMEOUT_MS = 10000; // 10 seconds
     private static final int CLIENT_EXECUTOR_THREADS = 10;
+    private static final int LOG_EXECUTOR_THREADS = 4;
+    private static final int MAX_PENDING_LOG_JOBS = 100;
 
     @Bean
     public DatadogClient datadogClient(ObjectMapper objectMapper, RestTemplate restTemplate) {
         ExecutorService executor = Executors.newFixedThreadPool(CLIENT_EXECUTOR_THREADS);
         return new DatadogClient(restTemplate, objectMapper, new RetryInformation(MAX_RETRIES, BACKOFF_SECONDS), executor);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public ExecutorService logReportingExecutor() {
+        return new ThreadPoolExecutor(LOG_EXECUTOR_THREADS, LOG_EXECUTOR_THREADS, 0, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(MAX_PENDING_LOG_JOBS), new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Bean

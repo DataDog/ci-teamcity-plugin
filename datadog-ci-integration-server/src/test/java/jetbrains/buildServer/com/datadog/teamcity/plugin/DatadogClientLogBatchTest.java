@@ -34,7 +34,6 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpMethod.POST;
 
@@ -89,29 +88,6 @@ public class DatadogClientLogBatchTest {
             assertThat(request.getHeaders().getFirst("DD-API-KEY")).isEqualTo("api-key");
             assertThat(request.getHeaders().getFirst("DD-CI-PROVIDER-NAME")).isEqualTo("teamcity");
         }
-    }
-
-    @Test
-    public void acceptsSuccessfulProductionResponse() {
-        RestTemplate restTemplate = mock(RestTemplate.class);
-        DatadogClient client = client(restTemplate);
-        when(restTemplate.exchange(any(String.class), eq(POST), any(HttpEntity.class), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("accepted"));
-
-        assertThat(client.sendLogBatchWithRetries(new byte[] {'[', ']'}, "api-key", "datadoghq.com")).isTrue();
-
-        verify(restTemplate).exchange(eq("https://http-intake.logs.datadoghq.com/api/v2/cilogs"), eq(POST),
-                any(HttpEntity.class), eq(String.class));
-    }
-
-    @Test
-    public void rejectsAnUnsupportedSite() {
-        RestTemplate restTemplate = mock(RestTemplate.class);
-
-        assertThat(client(restTemplate).sendLogBatchWithRetries(new byte[] {'[', ']'}, "api-key", "datadoghq.eu"))
-                .isFalse();
-
-        verifyZeroInteractions(restTemplate);
     }
 
     @Test

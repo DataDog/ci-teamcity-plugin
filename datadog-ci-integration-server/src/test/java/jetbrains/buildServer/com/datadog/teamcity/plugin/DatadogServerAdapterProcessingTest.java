@@ -780,10 +780,10 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
-    public void shouldSendWebhooksWithoutReadingLogsForUnsupportedSite() {
-        String unsupportedSite = "datadoghq.eu";
+    public void shouldSendJobLogsForEuSite() {
+        String euSite = "datadoghq.eu";
         when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, unsupportedSite, true));
+            .thenReturn(new ProjectParameters(TEST_API_KEY, euSite, true));
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
@@ -792,9 +792,10 @@ public class DatadogServerAdapterProcessingTest {
 
         datadogServerAdapter.buildFinished(pipelineBuild);
 
-        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(unsupportedSite));
-        assertThat(webhooksCaptor.getValue()).hasSize(2);
-        verifyZeroInteractions(jobLogReporterMock);
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(euSite));
+        assertThat(webhooksCaptor.getValue()).hasSize(1).first().isInstanceOf(PipelineWebhook.class);
+        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(jobBuild), any(JobWebhook.class),
+                eq("serverID-2"), eq(TEST_API_KEY), eq(euSite));
     }
 
     @Test

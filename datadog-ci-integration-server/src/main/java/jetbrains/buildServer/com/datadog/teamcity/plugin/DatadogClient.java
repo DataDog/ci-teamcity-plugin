@@ -55,11 +55,6 @@ public class DatadogClient {
     }
 
     public boolean sendLogBatchWithRetries(byte[] payload, String apiKey, String ddSite) {
-        if (!supportsLogIntake(ddSite)) {
-            LOG.warn(format("CI log intake is not available for site '%s'", ddSite));
-            return false;
-        }
-
         String url = format(LOG_INTAKE_BASE_URL, ddSite);
         HttpEntity<byte[]> request = new HttpEntity<>(payload, getHeaders(apiKey));
 
@@ -88,10 +83,6 @@ public class DatadogClient {
         }
 
         return false;
-    }
-
-    static boolean supportsLogIntake(String ddSite) {
-        return "datadoghq.com".equals(ddSite) || "datad0g.com".equals(ddSite);
     }
 
     private boolean shouldRetry(int statusCode) {

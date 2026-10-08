@@ -86,7 +86,7 @@ public class BuildChainProcessor {
         List<SBuild> jobBuilds = getJobBuilds(pipelineBuild);
         List<Webhook> webhooks = createWebhooks(pipelineBuild, jobBuilds);
 
-        if (!params.logsEnabled()) {
+        if (!params.logsEnabled() || !DatadogClient.supportsLogIntake(params.ddSite())) {
             datadogClient.sendWebhooksAsync(webhooks, params.apiKey(), params.ddSite());
             return;
         }

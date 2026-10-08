@@ -780,6 +780,24 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
+    public void shouldSendWebhooksWithoutReadingLogsForUnsupportedSite() {
+        String unsupportedSite = "datadoghq.eu";
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, unsupportedSite, true));
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(unsupportedSite));
+        assertThat(webhooksCaptor.getValue()).hasSize(2);
+        verifyZeroInteractions(jobLogReporterMock);
+    }
+
+    @Test
     public void shouldNotSendLogsForReusedOrUnstartedJobs() {
         when(projectHandlerMock.getProjectParameters(any()))
             .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, true));

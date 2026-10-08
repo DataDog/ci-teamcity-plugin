@@ -53,7 +53,7 @@ public class ProjectHandler {
     }
 
     static boolean isLogsEnabled(String logsDisabledValue) {
-        return logsDisabledValue == null;
+        return logsDisabledValue == null || "false".equalsIgnoreCase(logsDisabledValue.trim());
     }
 
     public boolean isPluginEnabled(SBuild build) {

@@ -24,7 +24,9 @@ public class ProjectHandlerLogsEnabledTest {
                 {null, true},
                 {"", false},
                 {"true", false},
-                {"false", false},
+                {"false", true},
+                {"FALSE", true},
+                {" false ", true},
                 {" ", false},
                 {"anything", false}
         });
@@ -39,7 +41,7 @@ public class ProjectHandlerLogsEnabledTest {
     }
 
     @Test
-    public void disablesLogsForAnyConfiguredValue() {
+    public void enablesLogsOnlyWhenUnsetOrFalse() {
         assertThat(ProjectHandler.isLogsEnabled(logsDisabledValue)).isEqualTo(expectedEnabled);
     }
 }

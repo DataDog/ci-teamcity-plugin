@@ -9,6 +9,7 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.JobLogReporter;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo;
@@ -66,13 +67,15 @@ public class BuildChainProcessor {
 
     private final SBuildServer buildServer;
     private final DatadogClient datadogClient;
+    private final JobLogReporter jobLogReporter;
     private final ProjectHandler projectHandler;
     private final GitInformationExtractor gitInformationExtractor;
     private final ServerSettings serverSettings;
 
-    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
+    public BuildChainProcessor(SBuildServer buildServer, DatadogClient datadogClient, JobLogReporter jobLogReporter, ProjectHandler projectHandler, GitInformationExtractor gitInformationExtractor, ServerSettings serverSettings) {
         this.buildServer = buildServer;
         this.datadogClient = datadogClient;
+        this.jobLogReporter = jobLogReporter;
         this.projectHandler = projectHandler;
         this.gitInformationExtractor = gitInformationExtractor;
         this.serverSettings = serverSettings;
@@ -80,19 +83,29 @@ public class BuildChainProcessor {
 
     public void process(SBuild pipelineBuild) {
         ProjectParameters params = projectHandler.getProjectParameters(pipelineBuild);
-        List<Webhook> webhooks = createWebhooks(pipelineBuild);
+        List<SBuild> jobBuilds = getJobBuilds(pipelineBuild);
+        List<Webhook> webhooks = createWebhooks(pipelineBuild, jobBuilds);
 
-        datadogClient.sendWebhooksAsync(webhooks, params.apiKey(), params.ddSite());
+        if (!params.logsEnabled()) {
+            datadogClient.sendWebhooksAsync(webhooks, params.apiKey(), params.ddSite());
+            return;
+        }
+
+        datadogClient.sendWebhooksAsync(singletonList(webhooks.get(0)), params.apiKey(), params.ddSite());
+        for (int i = 0; i < jobBuilds.size(); i++) {
+            jobLogReporter.sendJobWithLogsAsync(jobBuilds.get(i), (JobWebhook) webhooks.get(i + 1),
+                    webhooks.get(0).id(), params.apiKey(), params.ddSite());
+        }
     }
 
     /**
      * Creates all the webhooks for a build chain. There will be 1 pipeline webhook for the final
      * composite build and <em>N</em> webhooks for the eligible job builds in the chain.
      */
-    private List<Webhook> createWebhooks(SBuild pipelineBuild) {
+    private List<Webhook> createWebhooks(SBuild pipelineBuild, List<SBuild> jobBuilds) {
         PipelineWebhook pipelineWebhook = createPipelineWebhook(pipelineBuild);
         List<Webhook> webhooks = new ArrayList<>(singletonList(pipelineWebhook));
-        webhooks.addAll(createJobWebhooks(pipelineBuild));
+        webhooks.addAll(createJobWebhooks(jobBuilds, buildName(pipelineBuild), pipelineWebhook.id()));
 
         // Adding git information to all webhooks
         Optional<GitInfo> gitInfoOptional = gitInformationExtractor.extractGitInfo(pipelineBuild);
@@ -132,15 +145,18 @@ public class BuildChainProcessor {
         throw new IllegalArgumentException("Pipeline status not recognized: " + buildStatus);
     }
 
-    private List<JobWebhook> createJobWebhooks(SBuild pipelineBuild) {
-        String pipelineName = buildName(pipelineBuild);
-        String pipelineID = buildID(pipelineBuild);
+    private List<SBuild> getJobBuilds(SBuild pipelineBuild) {
         Date pipelineStartWithOffset = pipelineStartWithOffset(pipelineBuild);
 
         return pipelineBuild.getBuildPromotion().getAllDependencies().stream()
             .map(BuildPromotion::getAssociatedBuild)
             .filter(Objects::nonNull)
             .filter(build -> !shouldBeIgnored(build, pipelineStartWithOffset))
+            .collect(toList());
+    }
+
+    private List<JobWebhook> createJobWebhooks(List<SBuild> jobBuilds, String pipelineName, String pipelineID) {
+        return jobBuilds.stream()
             .map(job -> createJobWebhook(job, pipelineName, pipelineID))
             .collect(toList());
     }

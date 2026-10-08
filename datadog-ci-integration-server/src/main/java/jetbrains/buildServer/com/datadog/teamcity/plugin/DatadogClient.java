@@ -9,7 +9,6 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
 import org.springframework.http.HttpEntity;
@@ -17,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -31,6 +31,7 @@ public class DatadogClient {
     private static final Logger LOG = Logger.getInstance(DatadogClient.class.getName());
     private static final String TEAMCITY_PROVIDER = "teamcity";
     private static final String WEBHOOK_INTAKE_BASE_URL = "https://webhook-intake.%s/api/v2/webhook";
+    private static final String LOG_INTAKE_BASE_URL = "https://http-intake.logs.%s/api/v2/cilogs";
 
     protected static final String DD_API_KEY_HEADER = "DD-API-KEY";
     protected static final String DD_CI_PROVIDER_HEADER = "DD-CI-PROVIDER-NAME";
@@ -53,8 +54,42 @@ public class DatadogClient {
         }
     }
 
-    @VisibleForTesting
-    protected boolean sendWebhookWithRetries(Webhook webhook, String apiKey, String ddSite) {
+    public boolean sendLogBatchWithRetries(byte[] payload, String apiKey, String ddSite) {
+        String url = format(LOG_INTAKE_BASE_URL, ddSite);
+        HttpEntity<byte[]> request = new HttpEntity<>(payload, getHeaders(apiKey));
+
+        for (int attempt = 0; attempt <= retryInfo.maxRetries; attempt++) {
+            try {
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    return true;
+                }
+                if (!shouldRetry(response.getStatusCodeValue())) {
+                    LOG.warn(format("CI log intake rejected a batch with status %d", response.getStatusCodeValue()));
+                    return false;
+                }
+            } catch (HttpStatusCodeException ex) {
+                if (!shouldRetry(ex.getRawStatusCode())) {
+                    LOG.warn(format("CI log intake rejected a batch with status %d", ex.getRawStatusCode()));
+                    return false;
+                }
+            } catch (RestClientException ex) {
+                LOG.warn(format("Could not send a CI log batch, attempt %d/%d", attempt + 1, retryInfo.maxRetries + 1), ex);
+            }
+
+            if (attempt < retryInfo.maxRetries) {
+                sleepSeconds(retryInfo.backoffSeconds);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean shouldRetry(int statusCode) {
+        return statusCode == 408 || statusCode == 429 || statusCode >= 500;
+    }
+
+    public boolean sendWebhookWithRetries(Webhook webhook, String apiKey, String ddSite) {
         String url = format(WEBHOOK_INTAKE_BASE_URL, ddSite);
         String payload = serialize(webhook);
         HttpEntity<String> request = new HttpEntity<>(payload, getHeaders(apiKey));

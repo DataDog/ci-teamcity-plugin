@@ -8,6 +8,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.JobLogReporter;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.JobStatus;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.PipelineWebhook;
@@ -31,6 +32,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
@@ -72,6 +74,8 @@ public class DatadogServerAdapterProcessingTest {
     @Mock
     private DatadogClient datadogClientMock;
     @Mock
+    private JobLogReporter jobLogReporterMock;
+    @Mock
     private SBuildServer buildServerMock;
     @Mock
     private BuildsManager buildsManagerMock;
@@ -81,6 +85,10 @@ public class DatadogServerAdapterProcessingTest {
     private GitInformationExtractor gitInfoExtractorMock;
     @Mock
     private ServerSettings serverSettings;
+    @Mock
+    private ExecutorService logReportingExecutorMock;
+    @Mock
+    private ExecutorService clientExecutorMock;
 
     private DatadogServerAdapter datadogServerAdapter;
 
@@ -91,11 +99,12 @@ public class DatadogServerAdapterProcessingTest {
         when(serverSettings.getServerUUID()).thenReturn(DEFAULT_SERVER_ID);
 
         when(projectHandlerMock.getProjectParameters(any()))
-            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE));
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, false));
         when(projectHandlerMock.isPluginEnabled(any())).thenReturn(true);
 
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
     }
 
     @Test
@@ -670,8 +679,9 @@ public class DatadogServerAdapterProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
         datadogServerAdapter.buildFinished(pipelineBuild);
         String emptyUrl = "";
 
@@ -715,8 +725,9 @@ public class DatadogServerAdapterProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
 
         // When
-        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
-        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock);
+        BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
+                logReportingExecutorMock, clientExecutorMock);
         // Setup: non default server root URL with final slash
         when(buildServerMock.getRootUrl()).thenReturn(NON_DEFAULT_URL + "/");
         datadogServerAdapter.buildFinished(pipelineBuild);
@@ -748,5 +759,68 @@ public class DatadogServerAdapterProcessingTest {
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
+    }
+
+    @Test
+    public void shouldSendEligibleJobLogsWhenEnabled() {
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, true));
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        assertThat(webhooksCaptor.getValue()).hasSize(1).first().isInstanceOf(PipelineWebhook.class);
+        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(jobBuild), any(JobWebhook.class),
+                eq("serverID-2"), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+    }
+
+    @Test
+    public void shouldSendJobLogsForEuSite() {
+        String euSite = "datadoghq.eu";
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, euSite, true));
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(euSite));
+        assertThat(webhooksCaptor.getValue()).hasSize(1).first().isInstanceOf(PipelineWebhook.class);
+        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(jobBuild), any(JobWebhook.class),
+                eq("serverID-2"), eq(TEST_API_KEY), eq(euSite));
+    }
+
+    @Test
+    public void shouldNotSendLogsForReusedOrUnstartedJobs() {
+        when(projectHandlerMock.getProjectParameters(any()))
+            .thenReturn(new ProjectParameters(TEST_API_KEY, TEST_DD_SITE, true));
+        SRunningBuild reusedJob = new MockBuild.Builder(1, JOB)
+            .withStartDate(new Date(1000))
+            .build();
+        SRunningBuild newJob = new MockBuild.Builder(2, JOB)
+            .withStartDate(new Date(11000))
+            .build();
+        SRunningBuild unstartedJob = new MockBuild.Builder(3, JOB)
+            .withEndDate(null)
+            .build();
+        SRunningBuild pipelineBuild = new MockBuild.Builder(4, PIPELINE)
+            .withStartDate(new Date(10000))
+            .withAllDependencies(Arrays.asList(reusedJob, newJob, unstartedJob))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(4)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(jobLogReporterMock).sendJobWithLogsAsync(eq(newJob), any(JobWebhook.class),
+                eq("serverID-4"), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        verify(jobLogReporterMock, times(1)).sendJobWithLogsAsync(any(), any(), any(), any(), any());
     }
 }

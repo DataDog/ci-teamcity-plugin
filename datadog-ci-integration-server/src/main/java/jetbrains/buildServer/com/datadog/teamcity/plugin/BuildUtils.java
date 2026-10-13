@@ -14,7 +14,8 @@ import java.util.Date;
 
 public final class BuildUtils {
 
-    private static final SimpleDateFormat RFC_3339 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+    // RFC 3339 format with millisecond precision for accurate step timing
+    private static final SimpleDateFormat RFC_3339 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
     // In TeamCity, the last composite build of the chain might start slightly after the first build of the chain.
     // This is a temporary hack to include an offset of some seconds to not incorrectly

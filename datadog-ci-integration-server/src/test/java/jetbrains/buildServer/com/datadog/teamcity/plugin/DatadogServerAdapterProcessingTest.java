@@ -28,6 +28,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -212,6 +213,30 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
+    public void shouldReportDependencyWaitSeparatelyFromZeroAgentWait() {
+        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
+        when(jobBuild.getStatisticValue("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build"))
+            .thenReturn(null);
+        when(jobBuild.getStatisticValue("queueWaitReason:Build_dependencies_have_not_been_built_yet"))
+            .thenReturn(BigDecimal.valueOf(12500));
+        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
+            .withAllDependencies(singletonList(jobBuild))
+            .build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+
+        datadogServerAdapter.buildFinished(pipelineBuild);
+
+        verify(datadogClientMock)
+            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        JobWebhook expectedJob = new JobWebhook(
+            DEFAULT_NAME, defaultUrl(jobBuild), toRFC3339(DEFAULT_START_DATE), toRFC3339(DEFAULT_END_DATE),
+            "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS, 0);
+        expectedJob.setDependencyWaitTimeMs(12500);
+        assertThat(webhooksCaptor.getValue().get(1)).isEqualTo(expectedJob);
+        assertThat(expectedJob.metrics()).containsExactly("teamcity.dependency_wait_time:12.5");
+    }
+
+    @Test
     public void shouldProcessPipelineBuildWithOneDependency() {
         // Setup: [job -> pipeline]
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
@@ -347,7 +372,7 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME,
             "serverID-2",
             JobStatus.SUCCESS,
-            3000);
+            DEFAULT_QUEUE_TIME);
         secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -501,7 +526,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                2000));
+                DEFAULT_QUEUE_TIME));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);

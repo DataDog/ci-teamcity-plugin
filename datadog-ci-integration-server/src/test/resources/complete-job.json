@@ -31,5 +31,6 @@
     "message": "default-failure-message",
     "type": "Tests Failed",
     "domain": "provider"
-  }
+  },
+  "metrics": ["teamcity.dependency_wait_time:0.0"]
 }

@@ -15,6 +15,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook.CILevel.JOB;
 
 public class JobWebhook extends Webhook {
@@ -37,6 +38,8 @@ public class JobWebhook extends Webhook {
 
     @JsonProperty("queue_time")
     private final long queueTimeMs;
+
+    private long dependencyWaitTimeMs;
 
     @JsonProperty("dependencies")
     @Nullable
@@ -71,6 +74,15 @@ public class JobWebhook extends Webhook {
         this.dependenciesIds = dependenciesIds;
     }
 
+    public void setDependencyWaitTimeMs(long dependencyWaitTimeMs) {
+        this.dependencyWaitTimeMs = dependencyWaitTimeMs;
+    }
+
+    @JsonProperty("metrics")
+    public List<String> metrics() {
+        return singletonList("teamcity.dependency_wait_time:" + dependencyWaitTimeMs / 1000.0);
+    }
+
     public void setErrorInfo(@Nonnull ErrorInfo errorInfo) {
         this.errorInfo = errorInfo;
     }
@@ -95,12 +107,12 @@ public class JobWebhook extends Webhook {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         JobWebhook that = (JobWebhook) o;
-        return queueTimeMs == that.queueTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
+        return queueTimeMs == that.queueTimeMs && dependencyWaitTimeMs == that.dependencyWaitTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependenciesIds, hostInfo, errorInfo);
+        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependencyWaitTimeMs, dependenciesIds, hostInfo, errorInfo);
     }
 
     @Override
@@ -111,6 +123,7 @@ public class JobWebhook extends Webhook {
             ", id='" + id + '\'' +
             ", status=" + status +
             ", queueTimeMs=" + queueTimeMs +
+            ", dependencyWaitTimeMs=" + dependencyWaitTimeMs +
             ", dependenciesIds=" + dependenciesIds +
             ", hostInfo=" + hostInfo +
             ", errorInfo=" + errorInfo +

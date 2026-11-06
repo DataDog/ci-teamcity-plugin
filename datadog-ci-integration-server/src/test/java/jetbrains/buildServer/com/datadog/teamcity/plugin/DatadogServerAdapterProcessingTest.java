@@ -31,7 +31,9 @@ import org.mockito.runners.MockitoJUnitRunner;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -213,12 +215,12 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
-    public void shouldReportDependencyWaitSeparatelyFromZeroAgentWait() {
+    public void shouldReportDependencyAndPreparationSeparatelyFromZeroAgentWait() {
         SRunningBuild jobBuild = new MockBuild.Builder(1, JOB).build();
-        when(jobBuild.getStatisticValue("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build"))
-            .thenReturn(null);
-        when(jobBuild.getStatisticValue("queueWaitReason:Build_dependencies_have_not_been_built_yet"))
-            .thenReturn(BigDecimal.valueOf(12500));
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("queueWaitReason:Build_dependencies_have_not_been_built_yet", BigDecimal.valueOf(12500));
+        statistics.put("queueWaitReason:Checking_for_changes_is_in_progress", BigDecimal.valueOf(2750));
+        when(jobBuild.getStatisticValues()).thenReturn(statistics);
         SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
             .withAllDependencies(singletonList(jobBuild))
             .build();
@@ -232,8 +234,10 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME, defaultUrl(jobBuild), toRFC3339(DEFAULT_START_DATE), toRFC3339(DEFAULT_END_DATE),
             "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS, 0);
         expectedJob.setDependencyWaitTimeMs(12500);
+        expectedJob.setPreparationTimeMs(2750);
         assertThat(webhooksCaptor.getValue().get(1)).isEqualTo(expectedJob);
-        assertThat(expectedJob.metrics()).containsExactly("teamcity.dependency_wait_time:12.5");
+        assertThat(((JobWebhook) webhooksCaptor.getValue().get(1)).metrics())
+            .containsExactly("teamcity.dependency_wait_time:12.5", "teamcity.preparation_time:2.75");
     }
 
     @Test

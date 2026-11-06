@@ -70,8 +70,9 @@ public class MockBuild {
         when(buildMock.getStartDate()).thenReturn(b.startDate);
         when(buildMock.getFinishDate()).thenReturn(b.endDate);
         when(buildMock.getQueuedDate()).thenReturn(b.queueDate);
-        when(buildMock.getStatisticValue("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build"))
-            .thenReturn(BigDecimal.valueOf(TestUtils.DEFAULT_QUEUE_TIME));
+        when(buildMock.getStatisticValues()).thenReturn(Collections.singletonMap(
+            "queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build",
+            BigDecimal.valueOf(TestUtils.DEFAULT_QUEUE_TIME)));
         when(buildMock.isPersonal()).thenReturn(b.isPersonal);
         when(buildMock.getBranch()).thenReturn(b.branchMock);
         when(buildMock.getTags()).thenReturn(b.tags);

@@ -41,9 +41,12 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.dependencyWaitTimeMs;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.preparationTimeMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.pipelineStartWithOffset;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueWaitReasonTimesMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.USER;
@@ -180,7 +183,11 @@ public class BuildChainProcessor {
                 pipelineName,
                 buildID(jobBuild),
                 getJobStatus(jobBuild),
-                queueTimeMs(jobBuild));
+                queueTimeMs(jobBuild),
+                queueWaitReasonTimesMs(jobBuild));
+
+        jobWebhook.setDependencyWaitTimeMs(dependencyWaitTimeMs(jobBuild));
+        jobWebhook.setPreparationTimeMs(preparationTimeMs(jobBuild));
 
         if (!jobBuild.getBuildPromotion().getDependencies().isEmpty()) {
             jobWebhook.setDependenciesIds(getDependenciesIds(jobBuild));

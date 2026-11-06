@@ -297,7 +297,7 @@ public class JobLogReporterTest {
     }
 
     private JobWebhook webhook() {
-        return new JobWebhook("job", "url", "start", "end", "pipeline-id", "pipeline", "job-id", SUCCESS, 0);
+        return new JobWebhook("job", "url", "start", "end", "pipeline-id", "pipeline", "job-id", SUCCESS, 0, Collections.emptyMap());
     }
 
     private String repeat(char character, int count) {

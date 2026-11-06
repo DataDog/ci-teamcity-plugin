@@ -35,6 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -325,6 +327,9 @@ public class DatadogClientTest {
     }
 
     private static JobWebhook completeJob() {
+        Map<String, Long> reasons = new TreeMap<>();
+        reasons.put("agent_startup", (long) DEFAULT_QUEUE_TIME);
+        reasons.put("no_idle_compatible_agents", 0L);
         JobWebhook jobWebhook = new JobWebhook(
             DEFAULT_NAME,
             DEFAULT_BUILD_URL,
@@ -334,7 +339,8 @@ public class DatadogClientTest {
             DEFAULT_PIPELINE_NAME,
             DEFAULT_ID,
             JobStatus.SUCCESS,
-            DEFAULT_QUEUE_TIME
+            DEFAULT_QUEUE_TIME,
+            reasons
         );
 
         jobWebhook.setErrorInfo(defaultErrorInfo());

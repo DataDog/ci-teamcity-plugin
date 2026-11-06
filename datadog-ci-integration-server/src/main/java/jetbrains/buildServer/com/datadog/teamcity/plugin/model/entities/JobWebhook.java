@@ -95,7 +95,7 @@ public class JobWebhook extends Webhook {
         List<String> metrics = new ArrayList<>(asList(
             "teamcity.dependency_wait_time:" + dependencyWaitTimeMs / 1000.0,
             "teamcity.preparation_time:" + preparationTimeMs / 1000.0));
-        queueWaitReasonTimesMs.forEach((reason, duration) -> metrics.add("teamcity.queue_wait." + reason + ":" + duration));
+        queueWaitReasonTimesMs.forEach((reason, duration) -> metrics.add("teamcity.queue_wait_ms." + reason + ":" + duration));
         return metrics;
     }
 

@@ -244,8 +244,8 @@ public class DatadogServerAdapterProcessingTest {
         assertThat(webhooksCaptor.getValue().get(1)).isEqualTo(expectedJob);
         assertThat(((JobWebhook) webhooksCaptor.getValue().get(1)).metrics())
             .containsExactly("teamcity.dependency_wait_time:12.5", "teamcity.preparation_time:2.75",
-                "teamcity.queue_wait.dependencies_unfinished:12500",
-                "teamcity.queue_wait.no_idle_compatible_agents:0", "teamcity.queue_wait.vcs_check_running:2750");
+                "teamcity.queue_wait_ms.dependencies_unfinished:12500",
+                "teamcity.queue_wait_ms.no_idle_compatible_agents:0", "teamcity.queue_wait_ms.vcs_check_running:2750");
     }
 
     @Test

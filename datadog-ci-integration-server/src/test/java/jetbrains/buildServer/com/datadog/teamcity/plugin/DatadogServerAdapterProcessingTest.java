@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 
 import static java.util.Collections.singletonList;
@@ -45,6 +46,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.MockBuild.BuildT
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_END_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_NAME;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_TIME;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_QUEUE_WAIT_REASONS;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_SERVER_ID;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.DEFAULT_START_DATE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.TestUtils.IS_PARTIAL_RETRY;
@@ -230,14 +232,20 @@ public class DatadogServerAdapterProcessingTest {
 
         verify(datadogClientMock)
             .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        Map<String, Long> reasonTimes = new TreeMap<>();
+        reasonTimes.put("dependencies_unfinished", 12500L);
+        reasonTimes.put("no_idle_compatible_agents", 0L);
+        reasonTimes.put("vcs_check_running", 2750L);
         JobWebhook expectedJob = new JobWebhook(
             DEFAULT_NAME, defaultUrl(jobBuild), toRFC3339(DEFAULT_START_DATE), toRFC3339(DEFAULT_END_DATE),
-            "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS, 0);
+            "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS, 0, reasonTimes);
         expectedJob.setDependencyWaitTimeMs(12500);
         expectedJob.setPreparationTimeMs(2750);
         assertThat(webhooksCaptor.getValue().get(1)).isEqualTo(expectedJob);
         assertThat(((JobWebhook) webhooksCaptor.getValue().get(1)).metrics())
-            .containsExactly("teamcity.dependency_wait_time:12.5", "teamcity.preparation_time:2.75");
+            .containsExactly("teamcity.dependency_wait_time:12.5", "teamcity.preparation_time:2.75",
+                "teamcity.queue_wait.dependencies_unfinished:12500",
+                "teamcity.queue_wait.no_idle_compatible_agents:0", "teamcity.queue_wait.vcs_check_running:2750");
     }
 
     @Test
@@ -276,7 +284,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME));
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -311,7 +319,7 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME,
             "serverID-2",
             JobStatus.SUCCESS,
-            DEFAULT_QUEUE_TIME);
+            DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS);
         secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -333,7 +341,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME),
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS),
             secondJobWebhook);
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
@@ -376,7 +384,7 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME,
             "serverID-2",
             JobStatus.SUCCESS,
-            DEFAULT_QUEUE_TIME);
+            DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS);
         secondJobWebhook.setDependenciesIds(singletonList("serverID-1"));
 
         List<Webhook> expectedWebhooks = Arrays.asList(
@@ -436,7 +444,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME));
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -483,7 +491,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME));
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -530,7 +538,7 @@ public class DatadogServerAdapterProcessingTest {
                 DEFAULT_NAME,
                 "serverID-1",
                 JobStatus.SUCCESS,
-                DEFAULT_QUEUE_TIME));
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -565,7 +573,7 @@ public class DatadogServerAdapterProcessingTest {
              DEFAULT_NAME,
              "serverID-1",
              JobStatus.ERROR,
-             DEFAULT_QUEUE_TIME);
+             DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS);
 
          jobWebhook.setHostInfo(defaultHostInfo());
          jobWebhook.setErrorInfo(defaultErrorInfo());
@@ -625,7 +633,7 @@ public class DatadogServerAdapterProcessingTest {
             DEFAULT_NAME,
             "serverID-1",
             JobStatus.SUCCESS,
-            DEFAULT_QUEUE_TIME);
+            DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS);
         expectedJobWebhook.setGitInfo(defaultGitInfo());
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
@@ -737,7 +745,7 @@ public class DatadogServerAdapterProcessingTest {
                         DEFAULT_NAME,
                         "serverID-1",
                         JobStatus.SUCCESS,
-                        DEFAULT_QUEUE_TIME));
+                        DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);
@@ -784,7 +792,7 @@ public class DatadogServerAdapterProcessingTest {
                         DEFAULT_NAME,
                         "serverID-1",
                         JobStatus.SUCCESS,
-                        DEFAULT_QUEUE_TIME));
+                        DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS));
 
         List<Webhook> webhooksSent = webhooksCaptor.getValue();
         assertThat(webhooksSent).hasSize(2).hasSameElementsAs(expectedWebhooks);

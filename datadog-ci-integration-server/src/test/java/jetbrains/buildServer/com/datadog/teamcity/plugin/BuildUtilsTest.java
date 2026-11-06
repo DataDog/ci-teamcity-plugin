@@ -92,6 +92,8 @@ public class BuildUtilsTest {
             assertThat(BuildUtils.queueTimeMs(build)).as(reason).isEqualTo(1500);
             assertThat(BuildUtils.dependencyWaitTimeMs(build)).as(reason).isZero();
             assertThat(BuildUtils.preparationTimeMs(build)).as(reason).isZero();
+            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+                .containsEntry("no_idle_compatible_agents", 0L).hasSize(2);
         }
     }
 
@@ -105,6 +107,9 @@ public class BuildUtilsTest {
             when(build.getStatisticValues()).thenReturn(statistics);
 
             assertThat(BuildUtils.queueTimeMs(build)).as(separator).isEqualTo(5000);
+            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+                .containsEntry("selected_agent_upgrade", 2000L)
+                .containsEntry("agents_upgrade", 3000L);
         }
     }
 
@@ -145,5 +150,112 @@ public class BuildUtilsTest {
         assertThat(BuildUtils.queueTimeMs(build)).isZero();
         assertThat(BuildUtils.dependencyWaitTimeMs(build)).isZero();
         assertThat(BuildUtils.preparationTimeMs(build)).isZero();
+    }
+
+    @Test
+    public void reportsPositiveReasonDurationsInMilliseconds() {
+        SBuild build = mock(SBuild.class);
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build", BigDecimal.valueOf(1234));
+        statistics.put("queueWaitReason:The_agents_connectivity_with_the_server_has_not_been_verified_yet", BigDecimal.valueOf(56));
+        statistics.put("queueWaitReason:Build_dependencies_have_not_been_built_yet", BigDecimal.valueOf(9876));
+        statistics.put("queueWaitReason:Checking_for_changes_is_in_progress", BigDecimal.valueOf(45));
+        statistics.put("queueWaitReason:The_maximum_number_of_running_builds_for_this_configuration_is_reached", BigDecimal.valueOf(101));
+        statistics.put("buildStageDuration:sourcesUpdate", BigDecimal.valueOf(9999));
+        when(build.getStatisticValues()).thenReturn(statistics);
+
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            .hasSize(5)
+            .containsEntry("no_idle_compatible_agents", 1234L)
+            .containsEntry("agent_connectivity", 56L)
+            .containsEntry("dependencies_unfinished", 9876L)
+            .containsEntry("vcs_check_running", 45L)
+            .containsEntry("configuration_limit", 101L);
+    }
+
+    @Test
+    public void keepsZeroCapacityAndOmitsOtherNonPositiveReasons() {
+        SBuild build = mock(SBuild.class);
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("BuildDuration", BigDecimal.valueOf(1000));
+        statistics.put("queueWaitReason:Waiting_for_starting_agent", BigDecimal.ZERO);
+        statistics.put("queueWaitReason:The_agents_connectivity_with_the_server_has_not_been_verified_yet", BigDecimal.valueOf(-1));
+        when(build.getStatisticValues()).thenReturn(statistics);
+
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            .hasSize(1)
+            .containsEntry("no_idle_compatible_agents", 0L);
+    }
+
+    @Test
+    public void doesNotInventCapacityWhenStatisticsAreUnavailable() {
+        SBuild build = mock(SBuild.class);
+
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build)).isEmpty();
+    }
+
+    @Test
+    public void separatesExactCapacityFromLegacyAndRestrictedAgentReasons() {
+        SBuild build = mock(SBuild.class);
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build", BigDecimal.valueOf(5000));
+        statistics.put("queueWaitReason:There_are_no_compatible_agents_which_can_run_this_build", BigDecimal.valueOf(2000));
+        statistics.put("queueWaitReason:There_are_no_compatible_agents_which_can_run_this_build_and_match_the_specified_restrictions", BigDecimal.valueOf(3000));
+        when(build.getStatisticValues()).thenReturn(statistics);
+
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            .hasSize(3)
+            .containsEntry("no_idle_compatible_agents", 5000L)
+            .containsEntry("no_compatible_agents", 2000L)
+            .containsEntry("agent_restrictions", 3000L);
+        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(10000);
+    }
+
+    @Test
+    public void doesNotTreatLegacyAgentUnavailabilityAsZeroCapacity() {
+        for (String reason : new String[] {"No_available_agents", "There_are_no_compatible_agents_which_can_run_this_build"}) {
+            SBuild build = mock(SBuild.class);
+            when(build.getStatisticValues()).thenReturn(singletonMap("queueWaitReason:" + reason, BigDecimal.valueOf(2000)));
+
+            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+                .hasSize(1)
+                .containsValue(2000L)
+                .doesNotContainKey("no_idle_compatible_agents");
+        }
+    }
+
+    @Test
+    public void combinesResourceDetailsAndUnknownReasonsIntoBoundedNames() {
+        SBuild build = mock(SBuild.class);
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("queueWaitReason:Build_is_waiting_for_the_following_resource_database_1", BigDecimal.valueOf(250));
+        statistics.put("queueWaitReason:Build_is_waiting_for_the_following_resource_database_2", BigDecimal.valueOf(300));
+        statistics.put("queueWaitReason:New_extension_reason_build_123", BigDecimal.valueOf(100));
+        statistics.put("queueWaitReason:New_extension_reason_build_456", BigDecimal.valueOf(200));
+        when(build.getStatisticValues()).thenReturn(statistics);
+
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            .hasSize(3)
+            .containsEntry("shared_resource", 550L)
+            .containsEntry("other", 300L)
+            .containsEntry("no_idle_compatible_agents", 0L);
+    }
+
+    @Test
+    public void combinesPersistedAndCurrentPartialReasonDurations() {
+        SBuild build = mock(SBuild.class);
+        Map<String, BigDecimal> statistics = new HashMap<>();
+        statistics.put("queueWaitReason:There_are_no_idle_compatible_agents_which_can_run_this_build", BigDecimal.valueOf(1000));
+        statistics.put("queueWaitReason:CVPThere_are_no_idle_compatible_agents_which_can_run_this_build", BigDecimal.valueOf(234));
+        statistics.put("queueWaitReason:Build_dependencies_have_not_been_built_yet", BigDecimal.valueOf(600));
+        statistics.put("queueWaitReason:CVPBuild_dependencies_have_not_been_built_yet", BigDecimal.valueOf(50));
+        when(build.getStatisticValues()).thenReturn(statistics);
+
+        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(1234);
+        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isEqualTo(650);
+        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            .hasSize(2)
+            .containsEntry("no_idle_compatible_agents", 1234L)
+            .containsEntry("dependencies_unfinished", 650L);
     }
 }

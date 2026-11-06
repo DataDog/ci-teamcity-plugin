@@ -46,6 +46,7 @@ import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.prepa
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.pipelineStartWithOffset;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueWaitReasonTimesMs;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.USER;
@@ -182,7 +183,8 @@ public class BuildChainProcessor {
                 pipelineName,
                 buildID(jobBuild),
                 getJobStatus(jobBuild),
-                queueTimeMs(jobBuild));
+                queueTimeMs(jobBuild),
+                queueWaitReasonTimesMs(jobBuild));
 
         jobWebhook.setDependencyWaitTimeMs(dependencyWaitTimeMs(jobBuild));
         jobWebhook.setPreparationTimeMs(preparationTimeMs(jobBuild));

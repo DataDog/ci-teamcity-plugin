@@ -9,9 +9,14 @@ package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import jetbrains.buildServer.serverSide.SBuild;
 
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 public final class BuildUtils {
 
@@ -32,10 +37,10 @@ public final class BuildUtils {
         NO_AVAILABLE_AGENTS(WaitGroup.AGENT, "No_available_agents"),
         // Candidate agents must pass the server's connectivity check before use.
         AGENT_CONNECTIVITY(WaitGroup.AGENT, "The_agents_connectivity_with_the_server_has_not_been_verified_yet"),
-        // No compatible runner is currently available; older servers omit "idle".
-        NO_IDLE_COMPATIBLE_AGENTS(WaitGroup.AGENT,
-            "There_are_no_idle_compatible_agents_which_can_run_this_build",
-            "There_are_no_compatible_agents_which_can_run_this_build"),
+        // This exact statistic isolates lack of idle compatible runners.
+        NO_IDLE_COMPATIBLE_AGENTS(WaitGroup.AGENT, "There_are_no_idle_compatible_agents_which_can_run_this_build"),
+        // Older servers do not distinguish saturation from generic incompatibility.
+        NO_COMPATIBLE_AGENTS(WaitGroup.AGENT, "There_are_no_compatible_agents_which_can_run_this_build"),
         // Additional agent-selection restrictions leave no eligible runner.
         AGENT_RESTRICTIONS(WaitGroup.AGENT, "There_are_no_compatible_agents_which_can_run_this_build_and_match_the_specified_restrictions"),
         // Idle runners outside the requested pool cannot run this build.
@@ -143,7 +148,15 @@ public final class BuildUtils {
         }
 
         private boolean matches(String key) {
-            return Arrays.stream(keyPrefixes).anyMatch(key::startsWith);
+            return matchingPrefixLength(key) >= 0;
+        }
+
+        private int matchingPrefixLength(String key) {
+            return Arrays.stream(keyPrefixes).filter(key::startsWith).mapToInt(String::length).max().orElse(-1);
+        }
+
+        private String metricName() {
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 
@@ -187,16 +200,67 @@ public final class BuildUtils {
         return waitTimeMs(build, WaitGroup.PREPARATION);
     }
 
+    public static Map<String, Long> queueWaitReasonTimesMs(SBuild build) {
+        Map<String, BigDecimal> statistics = build.getStatisticValues();
+        Map<String, Long> reasons = new TreeMap<>();
+        if (statistics.isEmpty()) {
+            return reasons;
+        }
+
+        String capacityKey = WaitReason.NO_IDLE_COMPATIBLE_AGENTS.keyPrefixes[0];
+        String capacityMetric = WaitReason.NO_IDLE_COMPATIBLE_AGENTS.metricName();
+        reasons.put(capacityMetric, 0L);
+        boolean capacityRecorded = false;
+        boolean legacyAgentDelay = false;
+
+        for (Map.Entry<String, BigDecimal> statistic : statistics.entrySet()) {
+            if (!statistic.getKey().startsWith(QUEUE_WAIT_REASON_PREFIX)) {
+                continue;
+            }
+            String key = normalizeWaitReasonKey(statistic.getKey());
+            capacityRecorded |= key.equals(capacityKey);
+            long durationMs = statistic.getValue().longValue();
+            if (durationMs <= 0) {
+                continue;
+            }
+
+            WaitReason reason = Arrays.stream(WaitReason.values())
+                .filter(candidate -> candidate.matches(key))
+                .filter(candidate -> candidate != WaitReason.NO_IDLE_COMPATIBLE_AGENTS || key.equals(capacityKey))
+                .max(Comparator.comparingInt(candidate -> candidate.matchingPrefixLength(key)))
+                .orElse(null);
+            legacyAgentDelay |= reason == WaitReason.NO_AVAILABLE_AGENTS || reason == WaitReason.NO_COMPATIBLE_AGENTS;
+            // Unknown descriptions share one field so build/resource IDs cannot create metric names.
+            String metricName = reason == null ? "other" : reason.metricName();
+            reasons.merge(metricName, durationMs, Long::sum);
+        }
+
+        if (legacyAgentDelay && !capacityRecorded) {
+            // Legacy generic delays cannot establish whether idle capacity was the blocker.
+            reasons.remove(capacityMetric);
+        }
+        return reasons;
+    }
+
     private static long waitTimeMs(SBuild build, WaitGroup group) {
         return build.getStatisticValues().entrySet().stream()
             .filter(entry -> entry.getKey().startsWith(QUEUE_WAIT_REASON_PREFIX))
             .filter(entry -> {
-                // TeamCity versions differ in whether consecutive punctuation produces multiple underscores.
-                String key = entry.getKey().substring(QUEUE_WAIT_REASON_PREFIX.length()).replaceAll("_+", "_");
+                String key = normalizeWaitReasonKey(entry.getKey());
                 return Arrays.stream(WaitReason.values()).anyMatch(reason -> reason.group == group && reason.matches(key));
             })
             .mapToLong(entry -> entry.getValue().longValue())
             .sum();
+    }
+
+    private static String normalizeWaitReasonKey(String key) {
+        String reason = key.substring(QUEUE_WAIT_REASON_PREFIX.length());
+        // CVP stores an additional partial duration for the current reason.
+        if (reason.startsWith("CVP")) {
+            reason = reason.substring(3);
+        }
+        // TeamCity versions differ in whether consecutive punctuation produces multiple underscores.
+        return reason.replaceAll("_+", "_");
     }
 
     public static String toRFC3339(Date date) {

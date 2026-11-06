@@ -128,7 +128,7 @@ public final class BuildUtils {
         // Restarting the server delayed queue processing.
         SERVER_STARTUP(WaitGroup.EXCLUDED, "TeamCity_server_startup_delay"),
         // Server dispatch preparation is outside VCS/settings preparation.
-        BUILD_DISPATCH(WaitGroup.EXCLUDED, "Preparing_a_build_for_a_start_on_an_agent"),
+        BUILD_DISPATCH(WaitGroup.EXCLUDED, "Preparing_a_build_for_a_start_on_an_agent", "Preparing_the_composite_build_for_a_start"),
         // A build-start extension vetoed admission; its details vary.
         EXTENSION_BLOCKED(WaitGroup.EXCLUDED, "Extension_blocked_starting_of_the_build_"),
         // The collector exceeded its per-build reason limit, losing attribution.

@@ -236,6 +236,7 @@ public class DatadogServerAdapterProcessingTest {
         reasonTimes.put("dependencies_unfinished", 12500L);
         reasonTimes.put("no_idle_compatible_agents", 0L);
         reasonTimes.put("vcs_check_running", 2750L);
+        verify(jobBuild, times(1)).getStatisticValues();
         JobWebhook expectedJob = new JobWebhook(
             DEFAULT_NAME, defaultUrl(jobBuild), toRFC3339(DEFAULT_START_DATE), toRFC3339(DEFAULT_END_DATE),
             "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS, 0, reasonTimes);

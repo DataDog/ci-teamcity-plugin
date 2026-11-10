@@ -189,23 +189,12 @@ public final class BuildUtils {
         return build.getFullName();
     }
 
-    public static long queueTimeMs(SBuild build) {
-        return waitTimeMs(build, WaitGroup.AGENT);
-    }
-
-    public static long dependencyWaitTimeMs(SBuild build) {
-        return waitTimeMs(build, WaitGroup.DEPENDENCY);
-    }
-
-    public static long preparationTimeMs(SBuild build) {
-        return waitTimeMs(build, WaitGroup.PREPARATION);
-    }
-
-    public static Map<String, Long> queueWaitReasonTimesMs(SBuild build) {
+    public static QueueWaitTimes queueWaitTimes(SBuild build) {
         Map<String, BigDecimal> statistics = build.getStatisticValues();
-        Map<String, Long> reasons = new TreeMap<>();
+        QueueWaitTimes waitTimes = new QueueWaitTimes();
+        Map<String, Long> reasons = waitTimes.reasonTimesMs;
         if (statistics.isEmpty()) {
-            return reasons;
+            return waitTimes;
         }
 
         String capacityKey = WaitReason.NO_IDLE_COMPATIBLE_AGENTS.keyPrefixes[0];
@@ -234,24 +223,51 @@ public final class BuildUtils {
             // Unknown descriptions share one field so build/resource IDs cannot create metric names.
             String metricName = reason == null ? "other" : reason.metricName();
             reasons.merge(metricName, durationMs, Long::sum);
+            if (reason != null) {
+                switch (reason.group) {
+                    case AGENT:
+                        waitTimes.queueTimeMs += durationMs;
+                        break;
+                    case DEPENDENCY:
+                        waitTimes.dependencyWaitTimeMs += durationMs;
+                        break;
+                    case PREPARATION:
+                        waitTimes.preparationTimeMs += durationMs;
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
 
         if (legacyAgentDelay && !capacityRecorded) {
             // Legacy generic delays cannot establish whether idle capacity was the blocker.
             reasons.remove(capacityMetric);
         }
-        return reasons;
+        return waitTimes;
     }
 
-    private static long waitTimeMs(SBuild build, WaitGroup group) {
-        return build.getStatisticValues().entrySet().stream()
-            .filter(entry -> entry.getKey().startsWith(QUEUE_WAIT_REASON_PREFIX))
-            .filter(entry -> {
-                String key = normalizeWaitReasonKey(entry.getKey());
-                return Arrays.stream(WaitReason.values()).anyMatch(reason -> reason.group == group && reason.matches(key));
-            })
-            .mapToLong(entry -> entry.getValue().longValue())
-            .sum();
+    public static final class QueueWaitTimes {
+        private long queueTimeMs;
+        private long dependencyWaitTimeMs;
+        private long preparationTimeMs;
+        private final Map<String, Long> reasonTimesMs = new TreeMap<>();
+
+        public long queueTimeMs() {
+            return queueTimeMs;
+        }
+
+        public long dependencyWaitTimeMs() {
+            return dependencyWaitTimeMs;
+        }
+
+        public long preparationTimeMs() {
+            return preparationTimeMs;
+        }
+
+        public Map<String, Long> reasonTimesMs() {
+            return reasonTimesMs;
+        }
     }
 
     private static String normalizeWaitReasonKey(String key) {

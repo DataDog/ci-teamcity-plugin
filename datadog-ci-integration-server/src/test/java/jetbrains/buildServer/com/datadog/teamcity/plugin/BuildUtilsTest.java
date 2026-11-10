@@ -33,9 +33,10 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:Build_dependencies_have_not_been_built_yet", BigDecimal.valueOf(60000));
         statistics.put("queueWaitReason:Checking_for_changes_is_in_progress", BigDecimal.valueOf(2500));
 
-        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(5000);
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isEqualTo(60000);
-        assertThat(BuildUtils.preparationTimeMs(build)).isEqualTo(2500);
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isEqualTo(5000);
+        assertThat(waitTimes.dependencyWaitTimeMs()).isEqualTo(60000);
+        assertThat(waitTimes.preparationTimeMs()).isEqualTo(2500);
     }
 
     @Test
@@ -46,18 +47,20 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:Waiting_for_the_start_of_the_first_build_in_the_build_chain", BigDecimal.valueOf(2000));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueTimeMs(build)).isZero();
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isEqualTo(62000);
-        assertThat(BuildUtils.preparationTimeMs(build)).isZero();
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isZero();
+        assertThat(waitTimes.dependencyWaitTimeMs()).isEqualTo(62000);
+        assertThat(waitTimes.preparationTimeMs()).isZero();
     }
 
     @Test
     public void reportsZeroWhenNoWaitReasonsWereRecorded() {
         SBuild build = mock(SBuild.class);
 
-        assertThat(BuildUtils.queueTimeMs(build)).isZero();
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isZero();
-        assertThat(BuildUtils.preparationTimeMs(build)).isZero();
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isZero();
+        assertThat(waitTimes.dependencyWaitTimeMs()).isZero();
+        assertThat(waitTimes.preparationTimeMs()).isZero();
     }
 
     @Test
@@ -70,9 +73,10 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:Checking_for_changes_is_in_progress", BigDecimal.valueOf(3000));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(8000);
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isZero();
-        assertThat(BuildUtils.preparationTimeMs(build)).isEqualTo(3000);
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isEqualTo(8000);
+        assertThat(waitTimes.dependencyWaitTimeMs()).isZero();
+        assertThat(waitTimes.preparationTimeMs()).isEqualTo(3000);
     }
 
     @Test
@@ -89,10 +93,11 @@ public class BuildUtilsTest {
             SBuild build = mock(SBuild.class);
             when(build.getStatisticValues()).thenReturn(singletonMap("queueWaitReason:" + reason, BigDecimal.valueOf(1500)));
 
-            assertThat(BuildUtils.queueTimeMs(build)).as(reason).isEqualTo(1500);
-            assertThat(BuildUtils.dependencyWaitTimeMs(build)).as(reason).isZero();
-            assertThat(BuildUtils.preparationTimeMs(build)).as(reason).isZero();
-            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+            assertThat(waitTimes.queueTimeMs()).as(reason).isEqualTo(1500);
+            assertThat(waitTimes.dependencyWaitTimeMs()).as(reason).isZero();
+            assertThat(waitTimes.preparationTimeMs()).as(reason).isZero();
+            assertThat(waitTimes.reasonTimesMs())
                 .containsEntry("no_idle_compatible_agents", 0L).hasSize(2);
         }
     }
@@ -106,8 +111,9 @@ public class BuildUtilsTest {
             statistics.put("queueWaitReason:All_compatible_agents_are_outdated" + separator + "waiting_for_upgrade", BigDecimal.valueOf(3000));
             when(build.getStatisticValues()).thenReturn(statistics);
 
-            assertThat(BuildUtils.queueTimeMs(build)).as(separator).isEqualTo(5000);
-            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+            assertThat(waitTimes.queueTimeMs()).as(separator).isEqualTo(5000);
+            assertThat(waitTimes.reasonTimesMs())
                 .containsEntry("selected_agent_upgrade", 2000L)
                 .containsEntry("agents_upgrade", 3000L);
         }
@@ -130,9 +136,10 @@ public class BuildUtilsTest {
             SBuild build = mock(SBuild.class);
             when(build.getStatisticValues()).thenReturn(singletonMap("queueWaitReason:" + reason, BigDecimal.valueOf(1250)));
 
-            assertThat(BuildUtils.preparationTimeMs(build)).as(reason).isEqualTo(1250);
-            assertThat(BuildUtils.queueTimeMs(build)).as(reason).isZero();
-            assertThat(BuildUtils.dependencyWaitTimeMs(build)).as(reason).isZero();
+            BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+            assertThat(waitTimes.preparationTimeMs()).as(reason).isEqualTo(1250);
+            assertThat(waitTimes.queueTimeMs()).as(reason).isZero();
+            assertThat(waitTimes.dependencyWaitTimeMs()).as(reason).isZero();
         }
     }
 
@@ -147,9 +154,10 @@ public class BuildUtilsTest {
         statistics.put("buildStageDuration:sourcesUpdate", BigDecimal.valueOf(5000));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueTimeMs(build)).isZero();
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isZero();
-        assertThat(BuildUtils.preparationTimeMs(build)).isZero();
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isZero();
+        assertThat(waitTimes.dependencyWaitTimeMs()).isZero();
+        assertThat(waitTimes.preparationTimeMs()).isZero();
     }
 
     @Test
@@ -164,7 +172,8 @@ public class BuildUtilsTest {
         statistics.put("buildStageDuration:sourcesUpdate", BigDecimal.valueOf(9999));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.reasonTimesMs())
             .hasSize(5)
             .containsEntry("no_idle_compatible_agents", 1234L)
             .containsEntry("agent_connectivity", 56L)
@@ -180,9 +189,15 @@ public class BuildUtilsTest {
         statistics.put("BuildDuration", BigDecimal.valueOf(1000));
         statistics.put("queueWaitReason:Waiting_for_starting_agent", BigDecimal.ZERO);
         statistics.put("queueWaitReason:The_agents_connectivity_with_the_server_has_not_been_verified_yet", BigDecimal.valueOf(-1));
+        statistics.put("queueWaitReason:Build_dependencies_have_not_been_built_yet", BigDecimal.valueOf(-2));
+        statistics.put("queueWaitReason:Checking_for_changes_is_in_progress", BigDecimal.valueOf(-3));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isZero();
+        assertThat(waitTimes.dependencyWaitTimeMs()).isZero();
+        assertThat(waitTimes.preparationTimeMs()).isZero();
+        assertThat(waitTimes.reasonTimesMs())
             .hasSize(1)
             .containsEntry("no_idle_compatible_agents", 0L);
     }
@@ -191,7 +206,8 @@ public class BuildUtilsTest {
     public void doesNotInventCapacityWhenStatisticsAreUnavailable() {
         SBuild build = mock(SBuild.class);
 
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build)).isEmpty();
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.reasonTimesMs()).isEmpty();
     }
 
     @Test
@@ -203,12 +219,13 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:There_are_no_compatible_agents_which_can_run_this_build_and_match_the_specified_restrictions", BigDecimal.valueOf(3000));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.reasonTimesMs())
             .hasSize(3)
             .containsEntry("no_idle_compatible_agents", 5000L)
             .containsEntry("no_compatible_agents", 2000L)
             .containsEntry("agent_restrictions", 3000L);
-        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(10000);
+        assertThat(waitTimes.queueTimeMs()).isEqualTo(10000);
     }
 
     @Test
@@ -217,7 +234,8 @@ public class BuildUtilsTest {
             SBuild build = mock(SBuild.class);
             when(build.getStatisticValues()).thenReturn(singletonMap("queueWaitReason:" + reason, BigDecimal.valueOf(2000)));
 
-            assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+            BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+            assertThat(waitTimes.reasonTimesMs())
                 .hasSize(1)
                 .containsValue(2000L)
                 .doesNotContainKey("no_idle_compatible_agents");
@@ -234,7 +252,8 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:New_extension_reason_build_456", BigDecimal.valueOf(200));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.reasonTimesMs())
             .hasSize(3)
             .containsEntry("shared_resource", 550L)
             .containsEntry("other", 300L)
@@ -251,9 +270,10 @@ public class BuildUtilsTest {
         statistics.put("queueWaitReason:CVPBuild_dependencies_have_not_been_built_yet", BigDecimal.valueOf(50));
         when(build.getStatisticValues()).thenReturn(statistics);
 
-        assertThat(BuildUtils.queueTimeMs(build)).isEqualTo(1234);
-        assertThat(BuildUtils.dependencyWaitTimeMs(build)).isEqualTo(650);
-        assertThat(BuildUtils.queueWaitReasonTimesMs(build))
+        BuildUtils.QueueWaitTimes waitTimes = BuildUtils.queueWaitTimes(build);
+        assertThat(waitTimes.queueTimeMs()).isEqualTo(1234);
+        assertThat(waitTimes.dependencyWaitTimeMs()).isEqualTo(650);
+        assertThat(waitTimes.reasonTimesMs())
             .hasSize(2)
             .containsEntry("no_idle_compatible_agents", 1234L)
             .containsEntry("dependencies_unfinished", 650L);

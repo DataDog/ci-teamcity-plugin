@@ -15,8 +15,10 @@ import jetbrains.buildServer.serverSide.SBuild;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonMap;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 
@@ -51,6 +53,7 @@ public final class TestUtils {
     public static final String DEFAULT_REVISION = "revision";
 
     public static final int DEFAULT_QUEUE_TIME = 1000;
+    public static final Map<String, Long> DEFAULT_QUEUE_WAIT_REASONS = singletonMap("no_idle_compatible_agents", (long) DEFAULT_QUEUE_TIME);
     public static final boolean IS_PARTIAL_RETRY = true;
     public static final boolean NO_PARTIAL_RETRY = false;
 

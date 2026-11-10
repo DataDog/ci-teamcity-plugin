@@ -8,6 +8,7 @@
 package jetbrains.buildServer.com.datadog.teamcity.plugin;
 
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.QueueWaitTimes;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.ProjectHandler.ProjectParameters;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.logs.JobLogReporter;
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.GitInfo;
@@ -43,7 +44,7 @@ import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.buildName;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.isPartialRetry;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.pipelineStartWithOffset;
-import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueTimeMs;
+import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.queueWaitTimes;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.BuildUtils.toRFC3339;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.PROVIDER;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.JobWebhook.ErrorInfo.ErrorDomain.USER;
@@ -171,6 +172,7 @@ public class BuildChainProcessor {
     }
 
     private JobWebhook createJobWebhook(SBuild jobBuild, String pipelineName, String pipelineID) {
+        QueueWaitTimes waitTimes = queueWaitTimes(jobBuild);
         JobWebhook jobWebhook = new JobWebhook(
                 buildName(jobBuild),
                 buildURL(jobBuild),
@@ -180,7 +182,11 @@ public class BuildChainProcessor {
                 pipelineName,
                 buildID(jobBuild),
                 getJobStatus(jobBuild),
-                queueTimeMs(jobBuild));
+                waitTimes.queueTimeMs(),
+                waitTimes.reasonTimesMs());
+
+        jobWebhook.setDependencyWaitTimeMs(waitTimes.dependencyWaitTimeMs());
+        jobWebhook.setPreparationTimeMs(waitTimes.preparationTimeMs());
 
         if (!jobBuild.getBuildPromotion().getDependencies().isEmpty()) {
             jobWebhook.setDependenciesIds(getDependenciesIds(jobBuild));

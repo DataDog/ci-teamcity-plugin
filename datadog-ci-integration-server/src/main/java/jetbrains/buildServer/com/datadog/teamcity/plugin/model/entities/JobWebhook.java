@@ -12,9 +12,12 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
+import static java.util.Arrays.asList;
 import static jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook.CILevel.JOB;
 
 public class JobWebhook extends Webhook {
@@ -38,6 +41,12 @@ public class JobWebhook extends Webhook {
     @JsonProperty("queue_time")
     private final long queueTimeMs;
 
+    private long dependencyWaitTimeMs;
+
+    private long preparationTimeMs;
+
+    private final Map<String, Long> queueWaitReasonTimesMs;
+
     @JsonProperty("dependencies")
     @Nullable
     private List<String> dependenciesIds;
@@ -58,17 +67,36 @@ public class JobWebhook extends Webhook {
                       @Nonnull String pipelineName,
                       @Nonnull String id,
                       @Nonnull JobStatus status,
-                      long queueTimeMs) {
+                      long queueTimeMs,
+                      Map<String, Long> queueWaitReasonTimesMs) {
         super(JOB, name, url, start, end);
         this.pipelineID = pipelineID;
         this.pipelineName = pipelineName;
         this.id = id;
         this.status = status;
         this.queueTimeMs = queueTimeMs;
+        this.queueWaitReasonTimesMs = queueWaitReasonTimesMs;
     }
 
     public void setDependenciesIds(@Nonnull List<String> dependenciesIds) {
         this.dependenciesIds = dependenciesIds;
+    }
+
+    public void setDependencyWaitTimeMs(long dependencyWaitTimeMs) {
+        this.dependencyWaitTimeMs = dependencyWaitTimeMs;
+    }
+
+    public void setPreparationTimeMs(long preparationTimeMs) {
+        this.preparationTimeMs = preparationTimeMs;
+    }
+
+    @JsonProperty("metrics")
+    public List<String> metrics() {
+        List<String> metrics = new ArrayList<>(asList(
+            "teamcity.dependency_wait_time:" + dependencyWaitTimeMs / 1000.0,
+            "teamcity.preparation_time:" + preparationTimeMs / 1000.0));
+        queueWaitReasonTimesMs.forEach((reason, duration) -> metrics.add("teamcity.queue_wait_ms." + reason + ":" + duration));
+        return metrics;
     }
 
     public void setErrorInfo(@Nonnull ErrorInfo errorInfo) {
@@ -95,12 +123,12 @@ public class JobWebhook extends Webhook {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         JobWebhook that = (JobWebhook) o;
-        return queueTimeMs == that.queueTimeMs && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
+        return queueTimeMs == that.queueTimeMs && dependencyWaitTimeMs == that.dependencyWaitTimeMs && preparationTimeMs == that.preparationTimeMs && queueWaitReasonTimesMs.equals(that.queueWaitReasonTimesMs) && pipelineID.equals(that.pipelineID) && pipelineName.equals(that.pipelineName) && id.equals(that.id) && status == that.status && Objects.equals(dependenciesIds, that.dependenciesIds) && Objects.equals(hostInfo, that.hostInfo) && Objects.equals(errorInfo, that.errorInfo);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependenciesIds, hostInfo, errorInfo);
+        return Objects.hash(super.hashCode(), pipelineID, pipelineName, id, status, queueTimeMs, dependencyWaitTimeMs, preparationTimeMs, queueWaitReasonTimesMs, dependenciesIds, hostInfo, errorInfo);
     }
 
     @Override
@@ -111,6 +139,9 @@ public class JobWebhook extends Webhook {
             ", id='" + id + '\'' +
             ", status=" + status +
             ", queueTimeMs=" + queueTimeMs +
+            ", dependencyWaitTimeMs=" + dependencyWaitTimeMs +
+            ", preparationTimeMs=" + preparationTimeMs +
+            ", queueWaitReasonTimesMs=" + queueWaitReasonTimesMs +
             ", dependenciesIds=" + dependenciesIds +
             ", hostInfo=" + hostInfo +
             ", errorInfo=" + errorInfo +

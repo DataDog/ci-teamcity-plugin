@@ -31,5 +31,6 @@
     "message": "default-failure-message",
     "type": "Tests Failed",
     "domain": "provider"
-  }
+  },
+  "metrics": ["teamcity.dependency_wait_time:0.0", "teamcity.preparation_time:0.0", "teamcity.queue_wait_ms.agent_startup:1000", "teamcity.queue_wait_ms.no_idle_compatible_agents:0"]
 }

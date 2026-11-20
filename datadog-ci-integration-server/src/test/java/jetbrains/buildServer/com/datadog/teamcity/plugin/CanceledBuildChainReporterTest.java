@@ -155,9 +155,18 @@ public class CanceledBuildChainReporterTest {
     }
 
     @Test
-    public void assignedBuildHasNoQueueTimeoutEvenBeforeBuildRecordExists() {
+    public void selectedAgentDoesNotMakeQueuedBuildStarted() {
         SQueuedBuild queued = queued(dependency);
         when(queued.getBuildAgent()).thenReturn(mock(SBuildAgent.class));
+        clock.now = FINISHED_AT + 600_000;
+        reporter.report(composite);
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void startingBuildHasNoQueueTimeoutBeforeBuildRecordExists() {
+        queued(dependency);
+        when(dependency.getServerStartDate()).thenReturn(new Date(FINISHED_AT));
         clock.now = FINISHED_AT + 600_000;
         reporter.report(composite);
         verifyZeroInteractions(processor);

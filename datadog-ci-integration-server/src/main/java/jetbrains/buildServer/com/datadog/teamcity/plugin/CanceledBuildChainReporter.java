@@ -144,11 +144,12 @@ public class CanceledBuildChainReporter {
             return build != null && build.getFinishDate() != null;
         }
         SQueuedBuild queued = promotion.getQueuedBuild();
-        if (queued != null && queued.getBuildAgent() != null) {
-            return false;
-        }
         if (promotion.isCanceled() || promotion.isFailedToCollectChanges()) {
             return true;
+        }
+        // A queued build's getBuildAgent() can just be a restriction to a specific busy agent.
+        if (promotion.getServerStartDate() != null) {
+            return false;
         }
         if (queued != null) {
             if (queueExpired) {

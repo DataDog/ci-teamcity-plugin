@@ -73,7 +73,7 @@ public class CanceledBuildChainReporterTest {
         doReturn(singletonList(dependency)).when(root).getAllDependencies();
         when(dependency.getId()).thenReturn(200L);
         when(dependency.getAssociatedBuildId()).thenReturn(null);
-        doReturn(dependency).when(promotions).findPromotionById(200);
+        doReturn(dependency).when(promotions).findPromotionOrReplacement(200);
         clock.now = FINISHED_AT;
         reporter = new CanceledBuildChainReporter(builds, promotions, processor, security, executor, clock, () -> 300_000);
     }
@@ -167,7 +167,7 @@ public class CanceledBuildChainReporterTest {
     public void expiredQueuedDependencyCanStillStartWhileAnotherJobIsRunning() {
         BuildPromotion other = mock(BuildPromotion.class);
         when(other.getId()).thenReturn(300L);
-        when(promotions.findPromotionById(300)).thenReturn(other);
+        when(promotions.findPromotionOrReplacement(300)).thenReturn(other);
         when(other.getAssociatedBuildId()).thenReturn(30L);
         SBuild otherBuild = mock(SBuild.class);
         when(builds.findBuildInstanceById(30)).thenReturn(otherBuild);
@@ -201,12 +201,12 @@ public class CanceledBuildChainReporterTest {
 
     @Test
     public void missingPromotionIsRecheckedInsteadOfAssumedFinished() {
-        when(promotions.findPromotionById(200)).thenReturn(null);
+        when(promotions.findPromotionOrReplacement(200)).thenReturn(null);
         reporter.report(composite);
         clock.now = FINISHED_AT + 600_000;
         reporter.checkPending();
         verifyZeroInteractions(processor);
-        doReturn(dependency).when(promotions).findPromotionById(200);
+        doReturn(dependency).when(promotions).findPromotionOrReplacement(200);
         when(dependency.isCanceled()).thenReturn(true);
         reporter.checkPending();
         verify(processor).process(composite);
@@ -234,10 +234,10 @@ public class CanceledBuildChainReporterTest {
 
     @Test
     public void transientLookupFailureDoesNotStopFollowingChecks() {
-        when(promotions.findPromotionById(200)).thenThrow(new IllegalStateException("temporarily unavailable"));
+        when(promotions.findPromotionOrReplacement(200)).thenThrow(new IllegalStateException("temporarily unavailable"));
         reporter.report(composite);
         verifyZeroInteractions(processor);
-        doReturn(dependency).when(promotions).findPromotionById(200);
+        doReturn(dependency).when(promotions).findPromotionOrReplacement(200);
         when(dependency.isCanceled()).thenReturn(true);
         reporter.checkPending();
         verify(processor).process(composite);
@@ -344,6 +344,27 @@ public class CanceledBuildChainReporterTest {
         verify(processor, times(1)).process(composite);
     }
 
+    @Test
+    public void followsReplacementOfPreviouslyQueuedDependency() {
+        queued(dependency);
+        reporter.report(composite);
+        BuildPromotion replacement = mock(BuildPromotion.class);
+        when(replacement.getId()).thenReturn(201L);
+        when(replacement.getAssociatedBuildId()).thenReturn(20L);
+        when(promotions.findPromotionOrReplacement(200)).thenReturn(replacement);
+        when(promotions.findPromotionOrReplacement(201)).thenReturn(replacement);
+        doReturn(singletonList(replacement)).when(root).getAllDependencies();
+        SBuild work = mock(SBuild.class);
+        when(builds.findBuildInstanceById(20)).thenReturn(work);
+
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        when(work.getFinishDate()).thenReturn(new Date(FINISHED_AT + 60_000));
+        reporter.checkPending();
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
     private static class MutableClock extends Clock {
         private long now;
         @Override public ZoneId getZone() { return ZoneOffset.UTC; }
@@ -352,7 +373,7 @@ public class CanceledBuildChainReporterTest {
     }
 
     private SBuild running(long promotionId, long buildId) {
-        BuildPromotion promotion = promotionId == 200 ? dependency : promotions.findPromotionById(promotionId);
+        BuildPromotion promotion = promotionId == 200 ? dependency : promotions.findPromotionOrReplacement(promotionId);
         when(promotion.getAssociatedBuildId()).thenReturn(buildId);
         SBuild build = mock(SBuild.class);
         when(builds.findBuildInstanceById(buildId)).thenReturn(build);

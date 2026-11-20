@@ -132,7 +132,7 @@ public class CanceledBuildChainReporter {
     }
 
     private boolean isSettled(long promotionId, boolean queueExpired, List<Long> expiredQueued) {
-        BuildPromotion promotion = promotionManager.findPromotionById(promotionId);
+        BuildPromotion promotion = promotionManager.findPromotionOrReplacement(promotionId);
         if (promotion == null) {
             LOG.warn("Cannot resolve dependency promotion " + promotionId + "; will check again");
             return false;

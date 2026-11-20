@@ -715,7 +715,7 @@ public class DatadogServerAdapterProcessingTest {
         when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(job);
         BuildPromotionManager promotions = mock(BuildPromotionManager.class);
         when(job.getBuildPromotion().getId()).thenReturn(101L);
-        org.mockito.Mockito.doReturn(job.getBuildPromotion()).when(promotions).findPromotionById(101);
+        org.mockito.Mockito.doReturn(job.getBuildPromotion()).when(promotions).findPromotionOrReplacement(101);
         SecurityContextEx security = mock(SecurityContextEx.class);
         doAnswer(invocation -> {
             ((SecurityContextEx.RunAsAction) invocation.getArguments()[0]).run();

@@ -117,8 +117,13 @@ public class CanceledBuildChainReporter {
                         LOG.warn("Reporting canceled composite " + entry.getKey()
                                 + " without queued dependency promotions after the grace period: " + expiredQueued);
                     }
-                    processor.process(composite);
                     iterator.remove();
+                    try {
+                        processor.process(composite);
+                    } catch (RuntimeException ex) {
+                        // Processing can already have submitted some webhooks; preserve the existing delivery semantics.
+                        LOG.warn("Cannot hand off canceled composite " + entry.getKey() + " for reporting", ex);
+                    }
                 }
             } catch (RuntimeException ex) {
                 LOG.warn("Cannot report canceled composite " + entry.getKey() + "; will check again", ex);

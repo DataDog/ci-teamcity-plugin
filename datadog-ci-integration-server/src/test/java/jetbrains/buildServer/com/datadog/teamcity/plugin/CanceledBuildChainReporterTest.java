@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -330,6 +331,15 @@ public class CanceledBuildChainReporterTest {
         reporter.checkPending();
         SBuild build = running(200, 20);
         when(build.getFinishDate()).thenReturn(new Date(FINISHED_AT + 400_000));
+        reporter.checkPending();
+        verify(processor, times(1)).process(composite);
+    }
+
+    @Test
+    public void doesNotResubmitBatchIfProcessingFailsAfterPartiallyHandingOff() {
+        when(dependency.isCanceled()).thenReturn(true);
+        doThrow(new IllegalStateException("partial handoff")).when(processor).process(composite);
+        reporter.report(composite);
         reporter.checkPending();
         verify(processor, times(1)).process(composite);
     }

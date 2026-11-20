@@ -690,6 +690,21 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
+    public void shouldIgnoreFinishedCanceledPlaceholderThatNeverRanOnAgent() {
+        SRunningBuild placeholder = new MockBuild.Builder(1, JOB).withCanceledInfo("canceled in queue").build();
+        when(placeholder.isStartedOnAgent()).thenReturn(false);
+        SRunningBuild pipeline = new MockBuild.Builder(2, PIPELINE)
+                .withAllDependencies(singletonList(placeholder)).build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipeline);
+
+        datadogServerAdapter.buildFinished(pipeline);
+
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        assertThat(webhooksCaptor.getValue()).hasSize(1);
+        assertThat(webhooksCaptor.getValue().get(0)).isInstanceOf(PipelineWebhook.class);
+    }
+
+    @Test
     public void shouldReportLateJobFromDisabledProjectWithOriginalCompositeDuration() {
         SRunningBuild job = new MockBuild.Builder(1, JOB).withProjectID("disabled-project")
                 .withEndDate(null).build();

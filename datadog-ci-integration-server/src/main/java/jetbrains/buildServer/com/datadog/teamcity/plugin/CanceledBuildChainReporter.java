@@ -15,8 +15,8 @@ import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SQueuedBuild;
 import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -34,6 +34,7 @@ import java.util.function.LongSupplier;
 @Component
 public class CanceledBuildChainReporter {
     private static final Logger LOG = Logger.getInstance(CanceledBuildChainReporter.class.getName());
+    // Internal override: grace from the composite's finish, only for dependencies still queued without an agent.
     static final String QUEUED_TIMEOUT_PROPERTY = "datadog.ci.canceled_composite.queued_timeout_seconds";
     private static final long DEFAULT_QUEUED_TIMEOUT_SECONDS = 300;
 
@@ -169,8 +170,11 @@ public class CanceledBuildChainReporter {
     }
 
     private static long queuedTimeoutMs() {
-        String value = TeamCityProperties.getProperty(QUEUED_TIMEOUT_PROPERTY,
-                String.valueOf(DEFAULT_QUEUED_TIMEOUT_SECONDS));
+        return queuedTimeoutMs(TeamCityProperties.getProperty(QUEUED_TIMEOUT_PROPERTY,
+                String.valueOf(DEFAULT_QUEUED_TIMEOUT_SECONDS)));
+    }
+
+    static long queuedTimeoutMs(String value) {
         try {
             long seconds = Long.parseLong(value);
             if (seconds >= 0) {

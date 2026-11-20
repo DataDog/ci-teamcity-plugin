@@ -309,6 +309,31 @@ public class CanceledBuildChainReporterTest {
                 org.mockito.Matchers.eq(10L), org.mockito.Matchers.eq(TimeUnit.SECONDS));
     }
 
+    @Test
+    public void internalQueueTimeoutAcceptsZeroAndCustomValues() {
+        assertThat(CanceledBuildChainReporter.queuedTimeoutMs("0")).isZero();
+        assertThat(CanceledBuildChainReporter.queuedTimeoutMs("15")).isEqualTo(15_000);
+    }
+
+    @Test
+    public void invalidQueueTimeoutFallsBackToFiveMinutes() {
+        for (String value : Arrays.asList("invalid", "-1", "9223372036854775807")) {
+            assertThat(CanceledBuildChainReporter.queuedTimeoutMs(value)).isEqualTo(300_000);
+        }
+    }
+
+    @Test
+    public void dependenciesStartingAfterTheBatchWasReportedAreNotBackfilled() {
+        queued(dependency);
+        reporter.report(composite);
+        clock.now = FINISHED_AT + 300_000;
+        reporter.checkPending();
+        SBuild build = running(200, 20);
+        when(build.getFinishDate()).thenReturn(new Date(FINISHED_AT + 400_000));
+        reporter.checkPending();
+        verify(processor, times(1)).process(composite);
+    }
+
     private static class MutableClock extends Clock {
         private long now;
         @Override public ZoneId getZone() { return ZoneOffset.UTC; }

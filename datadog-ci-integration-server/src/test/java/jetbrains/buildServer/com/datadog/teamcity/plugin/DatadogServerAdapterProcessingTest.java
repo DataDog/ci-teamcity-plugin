@@ -16,6 +16,8 @@ import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Pipeline
 import jetbrains.buildServer.com.datadog.teamcity.plugin.model.entities.Webhook;
 import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.BuildsManager;
+import jetbrains.buildServer.serverSide.BuildPromotionManager;
+import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.ServerSettings;
@@ -29,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -37,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static java.util.Collections.singletonList;
 import static jetbrains.buildServer.BuildProblemTypes.TC_FAILED_TESTS_TYPE;
@@ -67,6 +71,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 
 @RunWith(MockitoJUnitRunner.class)
 public class DatadogServerAdapterProcessingTest {
@@ -95,6 +101,9 @@ public class DatadogServerAdapterProcessingTest {
     @Mock
     private ExecutorService clientExecutorMock;
 
+    @Mock
+    private CanceledBuildChainReporter canceledBuildChainReporter;
+
     private DatadogServerAdapter datadogServerAdapter;
 
     @Before
@@ -109,7 +118,7 @@ public class DatadogServerAdapterProcessingTest {
 
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
-                logReportingExecutorMock, clientExecutorMock);
+                logReportingExecutorMock, clientExecutorMock, canceledBuildChainReporter);
     }
 
     @Test
@@ -670,37 +679,62 @@ public class DatadogServerAdapterProcessingTest {
     }
 
     @Test
-    public void shouldDetectCanceledPipeline() {
-        // Setup: [job -> pipeline]
-        SRunningBuild jobBuild = new MockBuild.Builder(1, JOB)
-            .withEndDate(null)
-            .build();
-        SRunningBuild pipelineBuild = new MockBuild.Builder(2, PIPELINE)
-            .withCanceledInfo("canceled")
-            .withAllDependencies(singletonList(jobBuild))
-            .build();
-        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipelineBuild);
+    public void shouldDeferCanceledPipeline() {
+        SRunningBuild pipeline = new MockBuild.Builder(2, PIPELINE).withCanceledInfo("canceled").build();
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipeline);
 
-        // When
-        datadogServerAdapter.buildInterrupted(pipelineBuild);
+        datadogServerAdapter.buildInterrupted(pipeline);
 
-        // Then
-        verify(datadogClientMock, times(1))
-            .sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        verify(canceledBuildChainReporter).report(pipeline);
+        verifyZeroInteractions(datadogClientMock);
+    }
 
-        // Job webhook should not be sent as it has an invalid end date
-        PipelineWebhook expectedWebhook = new PipelineWebhook(
-            DEFAULT_NAME,
-            defaultUrl(pipelineBuild),
-            toRFC3339(DEFAULT_START_DATE),
-            toRFC3339(DEFAULT_END_DATE),
-            "serverID-2",
-            "2",
-            NO_PARTIAL_RETRY,
-            PipelineStatus.CANCELED);
+    @Test
+    public void shouldReportLateJobFromDisabledProjectWithOriginalCompositeDuration() {
+        SRunningBuild job = new MockBuild.Builder(1, JOB).withProjectID("disabled-project")
+                .withEndDate(null).build();
+        SRunningBuild pipeline = new MockBuild.Builder(2, PIPELINE).withCanceledInfo("canceled")
+                .withAllDependencies(singletonList(job)).build();
+        when(projectHandlerMock.isPluginEnabled(job)).thenReturn(false);
+        when(buildsManagerMock.findBuildInstanceById(2)).thenReturn(pipeline);
+        when(buildsManagerMock.findBuildInstanceById(1)).thenReturn(job);
+        BuildPromotionManager promotions = mock(BuildPromotionManager.class);
+        when(job.getBuildPromotion().getId()).thenReturn(101L);
+        org.mockito.Mockito.doReturn(job.getBuildPromotion()).when(promotions).findPromotionById(101);
+        SecurityContextEx security = mock(SecurityContextEx.class);
+        doAnswer(invocation -> {
+            ((SecurityContextEx.RunAsAction) invocation.getArguments()[0]).run();
+            return null;
+        }).when(security).runAsSystemUnchecked(any(SecurityContextEx.RunAsAction.class));
+        BuildChainProcessor processor = new BuildChainProcessor(buildServerMock, datadogClientMock,
+                jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
+        CanceledBuildChainReporter reporter = new CanceledBuildChainReporter(buildsManagerMock, promotions,
+                processor, security, mock(ScheduledExecutorService.class), Clock.systemUTC(), () -> 300_000);
+        DatadogServerAdapter adapter = new DatadogServerAdapter(eventListener, buildsManagerMock,
+                processor, projectHandlerMock, logReportingExecutorMock, clientExecutorMock, reporter);
 
-        List<Webhook> webhooksSent = webhooksCaptor.getValue();
-        assertThat(webhooksSent).containsExactly(expectedWebhook);
+        adapter.buildInterrupted(pipeline);
+        verifyZeroInteractions(datadogClientMock);
+        Date lateFinish = new Date(DEFAULT_END_DATE.getTime() + 60_000);
+        when(job.getFinishDate()).thenReturn(lateFinish);
+        adapter.buildFinished(job);
+        verifyZeroInteractions(datadogClientMock);
+        reporter.checkPending();
+
+        verify(datadogClientMock).sendWebhooksAsync(webhooksCaptor.capture(), eq(TEST_API_KEY), eq(TEST_DD_SITE));
+        assertThat(webhooksCaptor.getValue()).containsExactly(
+                new PipelineWebhook(DEFAULT_NAME, defaultUrl(pipeline), toRFC3339(DEFAULT_START_DATE),
+                        toRFC3339(DEFAULT_END_DATE), "serverID-2", "2", NO_PARTIAL_RETRY, PipelineStatus.CANCELED),
+                expectedJobWebhook(job, lateFinish));
+    }
+
+    private JobWebhook expectedJobWebhook(SRunningBuild job, Date endDate) {
+        JobWebhook webhook = new JobWebhook(DEFAULT_NAME, defaultUrl(job), toRFC3339(DEFAULT_START_DATE),
+                toRFC3339(endDate), "serverID-2", DEFAULT_NAME, "serverID-1", JobStatus.SUCCESS,
+                DEFAULT_QUEUE_TIME, DEFAULT_QUEUE_WAIT_REASONS);
+        webhook.setDependencyWaitTimeMs(0);
+        webhook.setPreparationTimeMs(0);
+        return webhook;
     }
 
     @Test
@@ -719,7 +753,7 @@ public class DatadogServerAdapterProcessingTest {
         // When
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
-                logReportingExecutorMock, clientExecutorMock);
+                logReportingExecutorMock, clientExecutorMock, canceledBuildChainReporter);
         datadogServerAdapter.buildFinished(pipelineBuild);
         String emptyUrl = "";
 
@@ -765,7 +799,7 @@ public class DatadogServerAdapterProcessingTest {
         // When
         BuildChainProcessor chainProcessor = new BuildChainProcessor(buildServerMock, datadogClientMock, jobLogReporterMock, projectHandlerMock, gitInfoExtractorMock, serverSettings);
         datadogServerAdapter = new DatadogServerAdapter(eventListener, buildsManagerMock, chainProcessor, projectHandlerMock,
-                logReportingExecutorMock, clientExecutorMock);
+                logReportingExecutorMock, clientExecutorMock, canceledBuildChainReporter);
         // Setup: non default server root URL with final slash
         when(buildServerMock.getRootUrl()).thenReturn(NON_DEFAULT_URL + "/");
         datadogServerAdapter.buildFinished(pipelineBuild);

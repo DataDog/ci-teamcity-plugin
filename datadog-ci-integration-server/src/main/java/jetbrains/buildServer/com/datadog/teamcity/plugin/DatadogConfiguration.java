@@ -18,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Configuration
 public class DatadogConfiguration {
@@ -42,6 +43,11 @@ public class DatadogConfiguration {
     @Bean(destroyMethod = "shutdown")
     public ExecutorService logReportingExecutor() {
         return Executors.newFixedThreadPool(LOG_EXECUTOR_THREADS);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public ScheduledExecutorService canceledBuildExecutor() {
+        return Executors.newSingleThreadScheduledExecutor();
     }
 
     @Bean

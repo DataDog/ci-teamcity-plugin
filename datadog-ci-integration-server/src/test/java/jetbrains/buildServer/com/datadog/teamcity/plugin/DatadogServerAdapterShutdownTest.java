@@ -38,12 +38,14 @@ public class DatadogServerAdapterShutdownTest {
     @Mock private ExecutorService logReportingExecutor;
     @Mock private ExecutorService clientExecutor;
 
+    @Mock private CanceledBuildChainReporter canceledBuildChainReporter;
+
     private DatadogServerAdapter adapter;
 
     @Before
     public void setUp() {
         adapter = new DatadogServerAdapter(eventListener, buildsManager, buildChainProcessor, projectHandler,
-                logReportingExecutor, clientExecutor);
+                logReportingExecutor, clientExecutor, canceledBuildChainReporter);
     }
 
     @Test
@@ -53,7 +55,8 @@ public class DatadogServerAdapterShutdownTest {
 
         adapter.serverShutdown();
 
-        InOrder order = inOrder(logReportingExecutor, clientExecutor);
+        InOrder order = inOrder(logReportingExecutor, clientExecutor, canceledBuildChainReporter);
+        order.verify(canceledBuildChainReporter).stop();
         order.verify(logReportingExecutor).shutdown();
         order.verify(logReportingExecutor).awaitTermination(3, TimeUnit.MINUTES);
         order.verify(clientExecutor).shutdown();
@@ -70,7 +73,7 @@ public class DatadogServerAdapterShutdownTest {
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch webhookFinished = new CountDownLatch(1);
         Thread shutdownThread = new Thread(() -> new DatadogServerAdapter(eventListener, buildsManager,
-                buildChainProcessor, projectHandler, logs, webhooks).serverShutdown());
+                buildChainProcessor, projectHandler, logs, webhooks, canceledBuildChainReporter).serverShutdown());
         try {
             logs.execute(() -> {
                 started.countDown();

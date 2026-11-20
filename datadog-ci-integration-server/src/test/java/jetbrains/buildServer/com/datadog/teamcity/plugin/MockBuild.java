@@ -67,6 +67,7 @@ public class MockBuild {
         when(buildMock.getBuildStatus()).thenReturn(b.status);
         when(buildMock.getProjectId()).thenReturn(b.projectID);
         when(buildMock.isCompositeBuild()).thenReturn(b.isComposite);
+        when(buildMock.isStartedOnAgent()).thenReturn(!b.isComposite);
         when(buildMock.getStartDate()).thenReturn(b.startDate);
         when(buildMock.getFinishDate()).thenReturn(b.endDate);
         when(buildMock.getQueuedDate()).thenReturn(b.queueDate);

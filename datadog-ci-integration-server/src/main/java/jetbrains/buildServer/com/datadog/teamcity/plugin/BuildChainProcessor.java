@@ -166,6 +166,8 @@ public class BuildChainProcessor {
         return jobBuild.isCompositeBuild() || // We ignore composite builds as they do not have any steps
             jobBuild.isPersonal() ||
             jobBuild.getFinishDate() == null || // This can happen in case the build is canceled before it starts
+            // TeamCity can create finished history records for canceled jobs that never ran on an agent.
+            (jobBuild.getCanceledInfo() != null && !jobBuild.isStartedOnAgent()) ||
             // For partial retries, we ignore jobs started before the pipeline,
             // as they are reused builds which were already sent by previous webhooks
             jobBuild.getStartDate().before(pipelineStart);

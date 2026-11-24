@@ -35,20 +35,28 @@ public class DatadogServerAdapter extends BuildServerAdapter {
     private final ProjectHandler projectHandler;
     private final ExecutorService logReportingExecutor;
     private final ExecutorService clientExecutor;
+    private final CanceledBuildChainReporter canceledBuildChainReporter;
 
     public DatadogServerAdapter(EventDispatcher<BuildServerListener> eventListener,
                                 BuildsManager buildsManager,
                                 BuildChainProcessor buildChainProcessor,
                                 ProjectHandler projectHandler,
                                 @Qualifier("logReportingExecutor") ExecutorService logReportingExecutor,
-                                @Qualifier("clientExecutor") ExecutorService clientExecutor) {
+                                @Qualifier("clientExecutor") ExecutorService clientExecutor,
+                                CanceledBuildChainReporter canceledBuildChainReporter) {
         this.buildsManager = buildsManager;
         this.buildChainProcessor = buildChainProcessor;
         this.projectHandler = projectHandler;
         this.logReportingExecutor = logReportingExecutor;
         this.clientExecutor = clientExecutor;
+        this.canceledBuildChainReporter = canceledBuildChainReporter;
 
         eventListener.addListener(this);
+    }
+
+    @Override
+    public void serverStartup() {
+        canceledBuildChainReporter.start();
     }
 
     @Override
@@ -64,6 +72,7 @@ public class DatadogServerAdapter extends BuildServerAdapter {
     @Override
     public void serverShutdown() {
         try {
+            canceledBuildChainReporter.stop();
             drain(logReportingExecutor, "log reporting", 3, TimeUnit.MINUTES);
             drain(clientExecutor, "webhook", 30, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
@@ -100,7 +109,11 @@ public class DatadogServerAdapter extends BuildServerAdapter {
             return;
         }
 
-        buildChainProcessor.process(pipelineBuild);
+        if (pipelineBuild.getCanceledInfo() != null) {
+            canceledBuildChainReporter.report(pipelineBuild);
+        } else {
+            buildChainProcessor.process(pipelineBuild);
+        }
     }
 
     private boolean isLastCompositeBuild(SBuild build) {

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -34,7 +35,7 @@ import java.util.function.LongSupplier;
 @Component
 public class CanceledBuildChainReporter {
     private static final Logger LOG = Logger.getInstance(CanceledBuildChainReporter.class.getName());
-    // Internal override: grace from the composite's finish, only for dependencies still queued without an agent.
+    // Internal override: completed upstream builds can move a queued job's grace past composite finish.
     static final String QUEUED_TIMEOUT_PROPERTY = "datadog.ci.canceled_composite.queued_timeout_seconds";
     private static final long DEFAULT_QUEUED_TIMEOUT_SECONDS = 300;
 
@@ -106,9 +107,8 @@ public class CanceledBuildChainReporter {
                 composite.getBuildPromotion().getAllDependencies().forEach(dependency -> chain.dependencies.add(dependency.getId()));
                 List<Long> expiredQueued = new ArrayList<>();
                 boolean ready = true;
-                long elapsed = clock.millis() - composite.getFinishDate().getTime();
                 for (long promotionId : chain.dependencies) {
-                    if (!isSettled(promotionId, elapsed >= chain.queuedTimeoutMs, expiredQueued)) {
+                    if (!isSettled(promotionId, composite.getFinishDate().getTime(), chain.queuedTimeoutMs, expiredQueued)) {
                         ready = false;
                     }
                 }
@@ -131,7 +131,7 @@ public class CanceledBuildChainReporter {
         }
     }
 
-    private boolean isSettled(long promotionId, boolean queueExpired, List<Long> expiredQueued) {
+    private boolean isSettled(long promotionId, long compositeFinishedAt, long queuedTimeoutMs, List<Long> expiredQueued) {
         BuildPromotion promotion = promotionManager.findPromotionOrReplacement(promotionId);
         if (promotion == null) {
             LOG.warn("Cannot resolve dependency promotion " + promotionId + "; will check again");
@@ -152,6 +152,7 @@ public class CanceledBuildChainReporter {
             return false;
         }
         if (queued != null) {
+            boolean queueExpired = isQueuedGraceExpired(promotion, compositeFinishedAt, queuedTimeoutMs);
             if (queueExpired) {
                 expiredQueued.add(promotionId);
             }
@@ -159,6 +160,32 @@ public class CanceledBuildChainReporter {
         }
         LOG.warn("Cannot determine state of dependency promotion " + promotionId + "; will check again");
         return false;
+    }
+
+    private boolean isQueuedGraceExpired(BuildPromotion promotion, long compositeFinishedAt, long queuedTimeoutMs) {
+        long graceStartedAt = compositeFinishedAt;
+        for (BuildPromotion dependency : promotion.getAllDependencies()) {
+            BuildPromotion upstream = promotionManager.findPromotionOrReplacement(dependency.getId());
+            if (upstream == null) {
+                LOG.warn("Cannot resolve upstream promotion " + dependency.getId() + "; will check again");
+                return false;
+            }
+            Long buildId = upstream.getAssociatedBuildId();
+            if (buildId == null) {
+                // Queued upstreams must not make their descendants wait forever.
+                continue;
+            }
+            SBuild build = buildsManager.findBuildInstanceById(buildId);
+            if (build == null) {
+                LOG.warn("Cannot resolve upstream build " + buildId + "; will check again");
+                return false;
+            }
+            Date finishedAt = build.getFinishDate();
+            if (finishedAt != null) {
+                graceStartedAt = Math.max(graceStartedAt, finishedAt.getTime());
+            }
+        }
+        return clock.millis() - graceStartedAt >= queuedTimeoutMs;
     }
 
     public void stop() throws InterruptedException {

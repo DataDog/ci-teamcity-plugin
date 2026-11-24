@@ -132,6 +132,135 @@ public class CanceledBuildChainReporterTest {
     }
 
     @Test
+    public void queuedDownstreamGetsFullGraceAfterLongRunningUpstreamFinishes() {
+        SBuild upstream = upstreamOfQueuedDependency();
+        reporter.report(composite);
+        clock.now = FINISHED_AT + TimeUnit.MINUTES.toMillis(30);
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+
+        long upstreamFinishedAt = clock.now;
+        when(upstream.getFinishDate()).thenReturn(new Date(upstreamFinishedAt));
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        clock.now = upstreamFinishedAt + 299_999;
+        reporter.checkPending();
+        reporter.report(composite);
+        verifyZeroInteractions(processor);
+        clock.now = upstreamFinishedAt + 300_000;
+        reporter.checkPending();
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void downstreamStartingJustBeforeExtendedDeadlineIsAwaitedUntilFinished() {
+        SBuild upstream = upstreamOfQueuedDependency();
+        reporter.report(composite);
+        clock.now = FINISHED_AT + TimeUnit.MINUTES.toMillis(30);
+        when(upstream.getFinishDate()).thenReturn(new Date(clock.now));
+        reporter.checkPending();
+        clock.now += 299_999;
+        SBuild downstream = running(200, 20);
+        reporter.checkPending();
+        clock.now += TimeUnit.HOURS.toMillis(12);
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        when(downstream.getFinishDate()).thenReturn(new Date(clock.now));
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void reusedUpstreamFinishedBeforeCompositeDoesNotShortenGrace() {
+        SBuild upstream = upstreamOfQueuedDependency();
+        when(upstream.getFinishDate()).thenReturn(new Date(FINISHED_AT - 60_000));
+        reporter.report(composite);
+        clock.now = FINISHED_AT + 299_999;
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        clock.now++;
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void unrelatedParallelJobDoesNotExtendQueuedJobGrace() {
+        SBuild upstream = upstreamOfQueuedDependency();
+        when(upstream.getFinishDate()).thenReturn(new Date(FINISHED_AT + 1000));
+        BuildPromotion parallel = mock(BuildPromotion.class);
+        when(parallel.getId()).thenReturn(400L);
+        when(parallel.getAssociatedBuildId()).thenReturn(40L);
+        when(promotions.findPromotionOrReplacement(400)).thenReturn(parallel);
+        SBuild parallelBuild = mock(SBuild.class);
+        when(builds.findBuildInstanceById(40)).thenReturn(parallelBuild);
+        BuildPromotion upstreamPromotion = promotions.findPromotionOrReplacement(300);
+        doReturn(Arrays.asList(dependency, upstreamPromotion, parallel)).when(root).getAllDependencies();
+        reporter.report(composite);
+        clock.now = FINISHED_AT + 600_000;
+        when(parallelBuild.getFinishDate()).thenReturn(new Date(clock.now));
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void upstreamThatStaysQueuedForeverDoesNotPreventTimeout() {
+        upstreamOfQueuedDependency();
+        BuildPromotion upstream = promotions.findPromotionOrReplacement(300);
+        when(upstream.getAssociatedBuildId()).thenReturn(null);
+        queued(upstream);
+        reporter.report(composite);
+        clock.now = FINISHED_AT + 299_999;
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        clock.now++;
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void transitiveUpstreamCompletionExtendsGraceForQueuedDescendants() {
+        SBuild upstreamBuild = upstreamOfQueuedDependency();
+        BuildPromotion upstream = promotions.findPromotionOrReplacement(300);
+        BuildPromotion middle = mock(BuildPromotion.class);
+        when(middle.getId()).thenReturn(400L);
+        when(middle.getAssociatedBuildId()).thenReturn(null);
+        when(promotions.findPromotionOrReplacement(400)).thenReturn(middle);
+        queued(middle);
+        doReturn(singletonList(upstream)).when(middle).getAllDependencies();
+        doReturn(Arrays.asList(middle, upstream)).when(dependency).getAllDependencies();
+        doReturn(Arrays.asList(dependency, middle, upstream)).when(root).getAllDependencies();
+        reporter.report(composite);
+        clock.now = FINISHED_AT + 600_000;
+        when(upstreamBuild.getFinishDate()).thenReturn(new Date(clock.now));
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        clock.now += 299_999;
+        reporter.checkPending();
+        verifyZeroInteractions(processor);
+        clock.now++;
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
+    public void upstreamReplacementCompletionExtendsQueuedJobGrace() {
+        upstreamOfQueuedDependency();
+        BuildPromotion replacement = mock(BuildPromotion.class);
+        when(replacement.getAssociatedBuildId()).thenReturn(31L);
+        when(promotions.findPromotionOrReplacement(300)).thenReturn(replacement);
+        SBuild finishedReplacement = mock(SBuild.class);
+        clock.now = FINISHED_AT + 600_000;
+        when(finishedReplacement.getFinishDate()).thenReturn(new Date(clock.now));
+        when(builds.findBuildInstanceById(31)).thenReturn(finishedReplacement);
+        reporter.report(composite);
+        verifyZeroInteractions(processor);
+        clock.now += 300_000;
+        reporter.checkPending();
+        verify(processor).process(composite);
+    }
+
+    @Test
     public void zeroGraceDoesNotWaitForQueuedDependencies() {
         queued(dependency);
         reporter = new CanceledBuildChainReporter(builds, promotions, processor, security, executor, clock, () -> 0);
@@ -379,6 +508,16 @@ public class CanceledBuildChainReporterTest {
         @Override public ZoneId getZone() { return ZoneOffset.UTC; }
         @Override public Clock withZone(ZoneId zone) { return this; }
         @Override public Instant instant() { return Instant.ofEpochMilli(now); }
+    }
+
+    private SBuild upstreamOfQueuedDependency() {
+        BuildPromotion upstream = mock(BuildPromotion.class);
+        when(upstream.getId()).thenReturn(300L);
+        when(promotions.findPromotionOrReplacement(300)).thenReturn(upstream);
+        doReturn(Arrays.asList(dependency, upstream)).when(root).getAllDependencies();
+        doReturn(singletonList(upstream)).when(dependency).getAllDependencies();
+        queued(dependency);
+        return running(300, 30);
     }
 
     private SBuild running(long promotionId, long buildId) {
